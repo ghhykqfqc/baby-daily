@@ -6,11 +6,11 @@ import { Language, ViewState } from './types';
 const LanguageContext = createContext<{
   lang: Language;
   toggleLang: () => void;
-  t: typeof TEXTS['en'];
+  t: typeof TEXTS['zh'];
 }>({
-  lang: 'en',
+  lang: 'zh',
   toggleLang: () => {},
-  t: TEXTS['en'],
+  t: TEXTS['zh'],
 });
 
 const useLanguage = () => useContext(LanguageContext);
@@ -870,7 +870,7 @@ const BottomNav = ({ current, onChange }: { current: ViewState; onChange: (v: Vi
 
 // --- Main App ---
 export default function App() {
-  const [lang, setLang] = useState<Language>('en');
+  const [lang, setLang] = useState<Language>('zh');
   const [currentView, setCurrentView] = useState<ViewState>('LOGIN'); // Start at Login
   const [appData, setAppData] = useState<AppData>(INITIAL_DATA);
   const [toast, setToast] = useState({ show: false, msg: '' });
