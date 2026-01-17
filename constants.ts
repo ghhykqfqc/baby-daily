@@ -128,7 +128,7 @@ export const TEXTS: Record<'en' | 'zh', Translation> = {
     notifyMe: "提醒我",
     adjustSchedule: "调整计划",
     tabs: {
-      feeding: "喂养",
+      feeding: "喂奶",
       diaper: "尿布",
       sleep: "睡眠",
       growth: "生长",
@@ -157,11 +157,11 @@ export const TEXTS: Record<'en' | 'zh', Translation> = {
       height: "身高"
     },
     addRecord: {
-      title: "添加喂养",
-      editTitle: "编辑喂养记录",
+      title: "添加喂奶",
+      editTitle: "编辑喂奶记录",
       cancel: "取消",
       save: "保存记录",
-      milkType: "喂养类型",
+      milkType: "喂奶类型",
       volume: "奶量",
       volumeSub: "调整摄入量",
       time: "时间",
