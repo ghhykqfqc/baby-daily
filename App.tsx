@@ -181,7 +181,7 @@ const LoginView = ({ onLogin }: { onLogin: () => void }) => {
 
 // --- Specific Views ---
 
-const HomeView = ({ onNavigate, data, onDelete, onToast, onEdit }: any) => {
+const HomeView = ({ onNavigate, data, onDelete, onToast, onEdit, babyName }: any) => {
   const { t } = useLanguage();
   const [filter, setFilter] = useState<'today' | 'week'>('today');
   const [calendarDate, setCalendarDate] = useState(new Date().toISOString().split('T')[0]);
@@ -193,8 +193,10 @@ const HomeView = ({ onNavigate, data, onDelete, onToast, onEdit }: any) => {
           if (filter === 'today') {
               return recDate.toDateString() === targetDate.toDateString();
           } else {
-              // Mock week filter logic
-              return true;
+              // Mock week filter logic: show if within last 7 days of target date
+              const diffTime = Math.abs(targetDate.getTime() - recDate.getTime());
+              const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+              return diffDays <= 7;
           }
       });
   }, [data.feedings, filter, calendarDate]);
@@ -210,7 +212,7 @@ const HomeView = ({ onNavigate, data, onDelete, onToast, onEdit }: any) => {
             <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuDHscGotOuiDiUWycvqIOLyjz_DqrCHIYvjDsE-o6Fy4cwM8_3vNKrzlfPw7BAeDwWcfvCRF5_QMT4SMLedDvyfTdUNSHDXc7NPDpMP4wCtqNBcHSbzoMg0HPiAEwKg31TI1OmXPqgP3vPHln0X5DOxQVQIjPsroDhv-XnikciBjxTiM32d1LNu8FgfeDaQ2o1a-3GyvY7EGL7husEQBYdyT6B2KaXUT9sKZ6jsESEe6MgYz7V-JzgkvlgkYcUGc-BGc7P2MM0CHofU" alt="Baby" className="w-full h-full object-cover" />
           </div>
           <div>
-            <h1 className="font-bold text-lg leading-tight">{t.appTitle}</h1>
+            <h1 className="font-bold text-lg leading-tight truncate max-w-[150px]">{babyName}'s Daily</h1>
             <p className="text-xs text-primary/80 font-medium">{t.babyAge}</p>
           </div>
         </div>
@@ -275,7 +277,7 @@ const HomeView = ({ onNavigate, data, onDelete, onToast, onEdit }: any) => {
                     <p className="font-bold text-lg">{item.volume}ml</p>
                   </div>
                   <div className="flex justify-between items-center mt-1">
-                    <p className="text-slate-400 text-xs font-semibold">{item.time}</p>
+                    <p className="text-slate-400 text-xs font-semibold">{item.time} - {new Date(item.timestamp).toLocaleDateString()}</p>
                     <span className="bg-slate-100 text-slate-500 text-[10px] px-2 py-0.5 rounded-md font-bold max-w-[120px] truncate">{item.note}</span>
                   </div>
                 </div>
@@ -345,7 +347,7 @@ const DiaperView = ({ onNavigate, data, onDelete, onToast, onEdit }: any) => {
                 <div className="flex-1">
                     <div className="flex justify-between items-center">
                         <p className="font-bold text-slate-800">{item.type === 'poo' ? t.records.poo : item.type === 'pee' ? t.records.pee : "Mixed"}</p>
-                        <span className="text-xs font-bold text-primary/60 uppercase">{item.time}</span>
+                        <span className="text-xs font-bold text-primary/60 uppercase">{item.time} - {new Date(item.timestamp).toLocaleDateString()}</span>
                     </div>
                     <div className="flex flex-wrap gap-2 mt-2">
                         <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-400 text-[10px] font-bold uppercase">{item.sub}</span>
@@ -392,7 +394,7 @@ const SleepView = ({ onNavigate, data, onDelete, onToast, onEdit }: any) => {
             </div>
 
              <div className="px-4 mb-2">
-                 <h3 className="font-bold text-lg mb-3">{t.filters.today}</h3>
+                 <h3 className="font-bold text-lg mb-3">{t.recentRecords}</h3>
                  <div className="space-y-4 pl-4 border-l-2 border-indigo-100 ml-2">
                      {data.sleeps.map((item: Sleep) => (
                          <div key={item.id} className="relative pl-6 py-1 group">
@@ -402,7 +404,7 @@ const SleepView = ({ onNavigate, data, onDelete, onToast, onEdit }: any) => {
                                      <h4 className="font-bold text-slate-800">{t.records.sleep}</h4>
                                      <span className="text-indigo-500 font-bold text-sm bg-indigo-50 px-2 py-1 rounded-lg">{item.duration}</span>
                                  </div>
-                                 <div className="flex items-center gap-2 text-slate-400 text-sm font-medium"><Icon name="schedule" className="text-sm" />{item.start} - {item.end}</div>
+                                 <div className="flex items-center gap-2 text-slate-400 text-sm font-medium"><Icon name="schedule" className="text-sm" />{item.start} - {item.end} <span className="text-xs ml-2">({new Date(item.timestamp).toLocaleDateString()})</span></div>
                                  <div className="absolute right-2 top-2 flex flex-col gap-1">
                                     <button onClick={() => { if(window.confirm("Delete?")) onDelete(item.id, 'sleeps'); }} className="size-8 flex items-center justify-center text-slate-300 hover:text-rose-500"><Icon name="close" className="text-sm" /></button>
                                     <button onClick={() => onEdit(item, 'ADD_SLEEP')} className="size-8 flex items-center justify-center text-slate-300 hover:text-primary"><Icon name="edit" className="text-sm" /></button>
@@ -418,25 +420,25 @@ const SleepView = ({ onNavigate, data, onDelete, onToast, onEdit }: any) => {
 }
 
 // Simple Chart Component
-const SimpleChart = ({ data }: { data: Growth[] }) => {
+const SimpleChart = ({ data, dataKey, colorClass }: { data: Growth[], dataKey: 'weight' | 'height', colorClass: string }) => {
     if (data.length < 2) return null;
     const sorted = [...data].sort((a,b) => a.timestamp - b.timestamp);
-    const weights = sorted.map(d => parseFloat(d.weight));
-    const minW = Math.min(...weights) - 0.5;
-    const maxW = Math.max(...weights) + 0.5;
-    const points = weights.map((w, i) => {
-        const x = (i / (weights.length - 1)) * 100;
-        const y = 100 - ((w - minW) / (maxW - minW)) * 100;
+    const values = sorted.map(d => parseFloat(d[dataKey]));
+    const minVal = Math.min(...values) - 0.5;
+    const maxVal = Math.max(...values) + 0.5;
+    const points = values.map((v, i) => {
+        const x = (i / (values.length - 1)) * 100;
+        const y = 100 - ((v - minVal) / (maxVal - minVal)) * 100;
         return `${x},${y}`;
     }).join(' ');
 
     return (
-        <div className="h-24 w-full mt-4 flex items-end relative border-b border-l border-white/20">
+        <div className={`h-24 w-full mt-4 flex items-end relative border-b border-l border-white/20 ${colorClass}`}>
             <svg className="w-full h-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
                 <polyline fill="none" stroke="white" strokeWidth="2" points={points} vectorEffect="non-scaling-stroke" />
-                {weights.map((w, i) => {
-                     const x = (i / (weights.length - 1)) * 100;
-                     const y = 100 - ((w - minW) / (maxW - minW)) * 100;
+                {values.map((v, i) => {
+                     const x = (i / (values.length - 1)) * 100;
+                     const y = 100 - ((v - minVal) / (maxVal - minVal)) * 100;
                      return <circle key={i} cx={x} cy={y} r="1.5" fill="white" />
                 })}
             </svg>
@@ -458,14 +460,12 @@ const GrowthView = ({ onNavigate, data, onDelete, onToast, onEdit }: any) => {
                 <div className="bg-blue-500 text-white p-5 rounded-2xl shadow-lg relative overflow-hidden">
                     <p className="text-xs font-bold uppercase opacity-80 mb-1">{t.records.weight}</p>
                     <p className="text-2xl font-bold">{parseFloat(latest.weight).toFixed(2)} kg</p>
-                    <SimpleChart data={data.growth} />
+                    <SimpleChart data={data.growth} dataKey="weight" colorClass="text-white" />
                 </div>
-                <div className="bg-teal-500 text-white p-5 rounded-2xl shadow-lg relative overflow-hidden flex flex-col justify-between">
-                    <div>
-                        <Icon name="height" className="text-4xl opacity-20 absolute right-2 top-2" />
-                        <p className="text-xs font-bold uppercase opacity-80 mb-1">{t.records.height}</p>
-                        <p className="text-2xl font-bold">{parseFloat(latest.height).toFixed(2)} cm</p>
-                    </div>
+                <div className="bg-teal-500 text-white p-5 rounded-2xl shadow-lg relative overflow-hidden">
+                    <p className="text-xs font-bold uppercase opacity-80 mb-1">{t.records.height}</p>
+                    <p className="text-2xl font-bold">{parseFloat(latest.height).toFixed(2)} cm</p>
+                    <SimpleChart data={data.growth} dataKey="height" colorClass="text-white" />
                 </div>
             </div>
 
@@ -495,13 +495,14 @@ const GrowthView = ({ onNavigate, data, onDelete, onToast, onEdit }: any) => {
     )
 }
 
-const ProfileView = ({ onToast, onLogout }: any) => {
+const ProfileView = ({ onToast, onLogout, babyName, setBabyName, data }: any) => {
     const { t } = useLanguage();
-    const [name, setName] = useState("Leo");
     const [isEditingName, setIsEditingName] = useState(false);
     const [showAvatar, setShowAvatar] = useState(false);
     const [showFamily, setShowFamily] = useState(false);
+    const [avatarUrl, setAvatarUrl] = useState("https://lh3.googleusercontent.com/aida-public/AB6AXuDHscGotOuiDiUWycvqIOLyjz_DqrCHIYvjDsE-o6Fy4cwM8_3vNKrzlfPw7BAeDwWcfvCRF5_QMT4SMLedDvyfTdUNSHDXc7NPDpMP4wCtqNBcHSbzoMg0HPiAEwKg31TI1OmXPqgP3vPHln0X5DOxQVQIjPsroDhv-XnikciBjxTiM32d1LNu8FgfeDaQ2o1a-3GyvY7EGL7husEQBYdyT6B2KaXUT9sKZ6jsESEe6MgYz7V-JzgkvlgkYcUGc-BGc7P2MM0CHofU");
     const [settings, setSettings] = useState({ notifications: true, units: false });
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const toggleSetting = (key: keyof typeof settings) => {
         setSettings(prev => {
@@ -510,6 +511,34 @@ const ProfileView = ({ onToast, onLogout }: any) => {
             return { ...prev, [key]: newVal };
         });
     }
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const url = URL.createObjectURL(file);
+            setAvatarUrl(url);
+            onToast("Avatar updated!");
+        }
+    };
+
+    const handleExport = () => {
+        const rows = [
+            ["Category", "Date", "Time", "Details", "Value"],
+            ...data.feedings.map((f: Feeding) => ["Feeding", new Date(f.timestamp).toLocaleDateString(), f.time, f.type, f.volume + "ml"]),
+            ...data.diapers.map((d: Diaper) => ["Diaper", new Date(d.timestamp).toLocaleDateString(), d.time, d.type, d.sub]),
+            ...data.sleeps.map((s: Sleep) => ["Sleep", new Date(s.timestamp).toLocaleDateString(), `${s.start}-${s.end}`, "Duration", s.duration]),
+            ...data.growth.map((g: Growth) => ["Growth", g.date, "-", `H:${g.height}cm`, `W:${g.weight}kg`]),
+        ];
+        const csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.join(",")).join("\n");
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `${babyName}_baby_log.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        onToast("Excel (CSV) file downloaded!");
+    };
 
     const SettingItem = ({ icon, label, id, isToggle = false, onClick }: any) => (
         <button 
@@ -533,18 +562,19 @@ const ProfileView = ({ onToast, onLogout }: any) => {
             <div className="flex flex-col items-center pt-8 pb-6 px-4">
                 <div className="relative">
                     <div onClick={() => setShowAvatar(true)} className="size-24 rounded-full border-4 border-white shadow-lg overflow-hidden mb-4 cursor-pointer">
-                        <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuDHscGotOuiDiUWycvqIOLyjz_DqrCHIYvjDsE-o6Fy4cwM8_3vNKrzlfPw7BAeDwWcfvCRF5_QMT4SMLedDvyfTdUNSHDXc7NPDpMP4wCtqNBcHSbzoMg0HPiAEwKg31TI1OmXPqgP3vPHln0X5DOxQVQIjPsroDhv-XnikciBjxTiM32d1LNu8FgfeDaQ2o1a-3GyvY7EGL7husEQBYdyT6B2KaXUT9sKZ6jsESEe6MgYz7V-JzgkvlgkYcUGc-BGc7P2MM0CHofU" alt="Baby" className="w-full h-full object-cover" />
+                        <img src={avatarUrl} alt="Baby" className="w-full h-full object-cover" />
                     </div>
-                    <button onClick={() => onToast("Uploading new avatar...")} className="absolute bottom-4 right-0 bg-slate-800 text-white p-1.5 rounded-full shadow-md"><Icon name="photo_camera" className="text-sm" /></button>
+                    <button onClick={() => fileInputRef.current?.click()} className="absolute bottom-4 right-0 bg-slate-800 text-white p-1.5 rounded-full shadow-md"><Icon name="photo_camera" className="text-sm" /></button>
+                    <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" hidden />
                 </div>
                 
                 {isEditingName ? (
                     <input 
-                        value={name} onChange={(e) => setName(e.target.value)} onBlur={() => setIsEditingName(false)} autoFocus
+                        value={babyName} onChange={(e) => setBabyName(e.target.value)} onBlur={() => setIsEditingName(false)} autoFocus
                         className="text-xl font-bold text-center border-b-2 border-primary outline-none bg-transparent"
                     />
                 ) : (
-                    <h1 onClick={() => setIsEditingName(true)} className="text-xl font-bold flex items-center gap-2 cursor-pointer">{name} <Icon name="edit" className="text-sm text-slate-300" /></h1>
+                    <h1 onClick={() => setIsEditingName(true)} className="text-xl font-bold flex items-center gap-2 cursor-pointer">{babyName} <Icon name="edit" className="text-sm text-slate-300" /></h1>
                 )}
                 <p className="text-primary font-bold text-sm bg-primary/10 px-3 py-1 rounded-full mt-2">{t.babyAge}</p>
             </div>
@@ -555,12 +585,12 @@ const ProfileView = ({ onToast, onLogout }: any) => {
                 <SettingItem icon="straighten" label={t.profile.units} id="units" isToggle />
                 <SettingItem icon="group" label={t.profile.family} id="family" onClick={() => setShowFamily(true)} />
                 <h3 className="font-bold text-xs uppercase text-slate-400 tracking-wider mb-3 px-1 mt-6">Data</h3>
-                <SettingItem icon="download" label={t.profile.export} id="export" onClick={() => onToast("Data downloaded as JSON")} />
+                <SettingItem icon="download" label={t.profile.export} id="export" onClick={handleExport} />
                 <button onClick={onLogout} className="w-full mt-4 p-4 text-rose-500 font-bold text-sm bg-rose-50 rounded-xl active:scale-[0.98] transition-transform">{t.profile.logout}</button>
             </div>
 
             <Modal isOpen={showAvatar} onClose={() => setShowAvatar(false)}>
-                <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuDHscGotOuiDiUWycvqIOLyjz_DqrCHIYvjDsE-o6Fy4cwM8_3vNKrzlfPw7BAeDwWcfvCRF5_QMT4SMLedDvyfTdUNSHDXc7NPDpMP4wCtqNBcHSbzoMg0HPiAEwKg31TI1OmXPqgP3vPHln0X5DOxQVQIjPsroDhv-XnikciBjxTiM32d1LNu8FgfeDaQ2o1a-3GyvY7EGL7husEQBYdyT6B2KaXUT9sKZ6jsESEe6MgYz7V-JzgkvlgkYcUGc-BGc7P2MM0CHofU" className="w-full rounded-xl" />
+                <img src={avatarUrl} className="w-full rounded-xl" />
             </Modal>
 
             <Modal isOpen={showFamily} onClose={() => setShowFamily(false)}>
@@ -810,6 +840,7 @@ export default function App() {
   const [appData, setAppData] = useState<AppData>(INITIAL_DATA);
   const [toast, setToast] = useState({ show: false, msg: '' });
   const [editingItem, setEditingItem] = useState<any>(null);
+  const [babyName, setBabyName] = useState("Leo");
 
   const toggleLang = () => setLang(prev => prev === 'en' ? 'zh' : 'en');
   const showToast = (msg: string) => setToast({ show: true, msg });
@@ -824,6 +855,8 @@ export default function App() {
           } else {
               newList = [newItem, ...prev[section]];
           }
+          // Sort by timestamp descending (newest first)
+          newList.sort((a, b) => b.timestamp - a.timestamp);
           return { ...prev, [section]: newList };
       });
       showToast(editingItem ? "Record updated!" : "Record saved!");
@@ -865,8 +898,8 @@ export default function App() {
         case 'DIAPER_LOG': return <DiaperView onNavigate={setCurrentView} data={appData} onDelete={handleDelete} onToast={showToast} onEdit={handleEdit} />;
         case 'SLEEP_LOG': return <SleepView onNavigate={setCurrentView} data={appData} onDelete={handleDelete} onToast={showToast} onEdit={handleEdit} />;
         case 'GROWTH_LOG': return <GrowthView onNavigate={setCurrentView} data={appData} onDelete={handleDelete} onToast={showToast} onEdit={handleEdit} />;
-        case 'PROFILE': return <ProfileView onToast={showToast} onLogout={() => setCurrentView('LOGIN')} />;
-        case 'HOME': default: return <HomeView onNavigate={setCurrentView} data={appData} onDelete={handleDelete} onToast={showToast} onEdit={handleEdit} />;
+        case 'PROFILE': return <ProfileView onToast={showToast} onLogout={() => setCurrentView('LOGIN')} babyName={babyName} setBabyName={setBabyName} data={appData} />;
+        case 'HOME': default: return <HomeView onNavigate={setCurrentView} data={appData} onDelete={handleDelete} onToast={showToast} onEdit={handleEdit} babyName={babyName} />;
     }
   }
 
