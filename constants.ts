@@ -42,6 +42,7 @@ export const TEXTS: Record<'en' | 'zh', Translation> = {
     },
     addRecord: {
       title: "Add Feeding",
+      editTitle: "Edit Feeding",
       cancel: "Cancel",
       save: "Save Record",
       milkType: "MILK TYPE",
@@ -61,18 +62,22 @@ export const TEXTS: Record<'en' | 'zh', Translation> = {
     },
     diaperAdd: {
       title: "Add Diaper",
+      editTitle: "Edit Diaper",
       condition: "CONDITION",
       consistency: "CONSISTENCY",
-      color: "COLOR"
+      color: "COLOR",
+      time: "Time Check"
     },
     sleepAdd: {
       title: "Add Sleep",
+      editTitle: "Edit Sleep",
       start: "Start Time",
       end: "End Time",
       duration: "Duration",
     },
     growthAdd: {
       title: "Add Growth",
+      editTitle: "Edit Growth",
       weight: "Weight (kg)",
       height: "Height (cm)",
       head: "Head Circumference (cm)",
@@ -84,7 +89,22 @@ export const TEXTS: Record<'en' | 'zh', Translation> = {
       units: "Units (Metric/Imperial)",
       export: "Export Data",
       logout: "Log Out",
-      family: "Family Sharing"
+      family: "Family Sharing",
+      familyTitle: "Invite Family",
+      familyDesc: "Share this code with your partner:",
+      invite: "Invite"
+    },
+    login: {
+      welcome: "Welcome to BabyLog",
+      subtitle: "Track your baby's growth with AI",
+      wechat: "WeChat",
+      phone: "Phone",
+      pass: "Password",
+      btn: "Login / Register",
+      placeholderPhone: "Enter Phone Number",
+      placeholderCode: "Enter Verification Code",
+      placeholderPass: "Enter Password",
+      agree: "I agree to Terms & Privacy Policy"
     },
     details: {
       enfamil: "Enfamil A+",
@@ -138,6 +158,7 @@ export const TEXTS: Record<'en' | 'zh', Translation> = {
     },
     addRecord: {
       title: "添加喂养",
+      editTitle: "编辑喂养记录",
       cancel: "取消",
       save: "保存记录",
       milkType: "喂养类型",
@@ -157,18 +178,22 @@ export const TEXTS: Record<'en' | 'zh', Translation> = {
     },
     diaperAdd: {
       title: "添加尿布",
+      editTitle: "编辑尿布记录",
       condition: "状态",
       consistency: "质地",
-      color: "颜色"
+      color: "颜色",
+      time: "检查时间"
     },
     sleepAdd: {
       title: "添加睡眠",
+      editTitle: "编辑睡眠记录",
       start: "开始时间",
       end: "结束时间",
       duration: "时长",
     },
     growthAdd: {
       title: "添加生长数据",
+      editTitle: "编辑生长数据",
       weight: "体重 (kg)",
       height: "身高 (cm)",
       head: "头围 (cm)",
@@ -180,7 +205,22 @@ export const TEXTS: Record<'en' | 'zh', Translation> = {
       units: "单位 (公制/英制)",
       export: "导出数据",
       logout: "退出登录",
-      family: "家庭共享"
+      family: "家庭共享",
+      familyTitle: "邀请家人",
+      familyDesc: "将此代码分享给您的家人：",
+      invite: "邀请"
+    },
+    login: {
+      welcome: "欢迎使用 BabyLog",
+      subtitle: "AI 助力宝宝健康成长",
+      wechat: "微信一键登录",
+      phone: "手机验证码",
+      pass: "账号密码",
+      btn: "登录 / 注册",
+      placeholderPhone: "请输入手机号",
+      placeholderCode: "请输入验证码",
+      placeholderPass: "请输入密码",
+      agree: "登录即代表同意用户协议与隐私政策"
     },
     details: {
       enfamil: "美赞臣 A+",

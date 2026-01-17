@@ -1,6 +1,7 @@
 export type Language = 'en' | 'zh';
 
 export type ViewState = 
+  | 'LOGIN'
   | 'HOME' 
   | 'DIAPER_LOG' 
   | 'SLEEP_LOG' 
@@ -52,6 +53,7 @@ export interface Translation {
   };
   addRecord: {
     title: string;
+    editTitle: string;
     cancel: string;
     save: string;
     milkType: string;
@@ -71,18 +73,22 @@ export interface Translation {
   };
   diaperAdd: {
     title: string;
+    editTitle: string;
     condition: string;
     consistency: string;
     color: string;
+    time: string;
   };
   sleepAdd: {
     title: string;
+    editTitle: string;
     start: string;
     end: string;
     duration: string;
   };
   growthAdd: {
     title: string;
+    editTitle: string;
     weight: string;
     height: string;
     head: string;
@@ -95,6 +101,21 @@ export interface Translation {
     export: string;
     logout: string;
     family: string;
+    familyTitle: string;
+    familyDesc: string;
+    invite: string;
+  };
+  login: {
+    welcome: string;
+    subtitle: string;
+    wechat: string;
+    phone: string;
+    pass: string;
+    btn: string;
+    placeholderPhone: string;
+    placeholderCode: string;
+    placeholderPass: string;
+    agree: string;
   };
   details: {
     enfamil: string;
