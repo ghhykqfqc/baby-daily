@@ -277,7 +277,7 @@ const HomeView = ({ onNavigate, data, onDelete, onToast, onEdit, babyName }: any
                     <p className="font-bold text-lg">{item.volume}ml</p>
                   </div>
                   <div className="flex justify-between items-center mt-1">
-                    <p className="text-slate-400 text-xs font-semibold">{item.time} - {new Date(item.timestamp).toLocaleDateString()}</p>
+                    <p className="text-slate-400 text-xs font-semibold">{new Date(item.timestamp).toLocaleDateString()} {item.time}</p>
                     <span className="bg-slate-100 text-slate-500 text-[10px] px-2 py-0.5 rounded-md font-bold max-w-[120px] truncate">{item.note}</span>
                   </div>
                 </div>
@@ -382,7 +382,7 @@ const DiaperView = ({ onNavigate, data, onDelete, onToast, onEdit }: any) => {
                 <div className="flex-1">
                     <div className="flex justify-between items-center">
                         <p className="font-bold text-slate-800">{item.type === 'poo' ? t.records.poo : item.type === 'pee' ? t.records.pee : "Mixed"}</p>
-                        <span className="text-xs font-bold text-primary/60 uppercase">{item.time} - {new Date(item.timestamp).toLocaleDateString()}</span>
+                        <span className="text-xs font-bold text-primary/60 uppercase">{new Date(item.timestamp).toLocaleDateString()} {item.time}</span>
                     </div>
                     <div className="flex flex-wrap gap-2 mt-2">
                         <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-400 text-[10px] font-bold uppercase">{item.sub}</span>
