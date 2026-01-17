@@ -297,6 +297,22 @@ const DiaperView = ({ onNavigate, data, onDelete, onToast, onEdit }: any) => {
   const [typeFilter, setTypeFilter] = useState<'all' | 'pee' | 'poo'>('all');
   const [showHistory, setShowHistory] = useState(false);
 
+  // Mock Smart AI Prediction logic
+  const prediction = useMemo(() => {
+      const latest = data.diapers[0]; // Data is sorted
+      if (!latest) return { time: "12:00", type: 'pee' };
+      
+      const lastTime = new Date(latest.timestamp);
+      // Predict 2.5 hours after last change
+      const nextTime = new Date(lastTime.getTime() + 2.5 * 60 * 60 * 1000); 
+      const timeStr = nextTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: false});
+      
+      // Predict based on last type: if last was poo, next probably pee. If last pee, could be either, but let's say pee.
+      const type = latest.type === 'poo' ? 'pee' : 'pee';
+      
+      return { time: timeStr, type };
+  }, [data.diapers]);
+
   const filtered = useMemo(() => {
       let list = data.diapers;
       if (!showHistory) {
@@ -319,11 +335,30 @@ const DiaperView = ({ onNavigate, data, onDelete, onToast, onEdit }: any) => {
 
       <div className="px-4 mt-2">
         <div className="relative overflow-hidden rounded-2xl bg-white border border-slate-100 shadow-soft p-5">
-             <div className="flex items-center gap-2 mb-1 relative z-10"><Icon name="auto_awesome" className="text-primary text-sm" filled /><span className="text-[10px] font-bold tracking-widest text-primary uppercase">{t.aiPrediction}</span></div>
-            <div className="flex items-baseline gap-2 relative z-10"><h2 className="text-3xl font-bold text-slate-800 tracking-tight">3:15 PM</h2></div>
+             <div className="flex items-center gap-2 mb-2 relative z-10">
+                 <Icon name="auto_awesome" className="text-primary text-sm" filled />
+                 <span className="text-[10px] font-bold tracking-widest text-primary uppercase">{t.aiPrediction}</span>
+             </div>
+             
+             {/* Smart Prediction Content */}
+             <div className="flex items-center gap-3 mt-1 relative z-10">
+                 <div className={`size-12 rounded-xl flex items-center justify-center text-2xl shadow-sm ${prediction.type === 'pee' ? 'bg-blue-50 text-blue-500 border border-blue-100' : 'bg-orange-50 text-orange-500 border border-orange-100'}`}>
+                     {prediction.type === 'pee' ? '💧' : '💩'}
+                 </div>
+                 <div>
+                     <h2 className="text-3xl font-bold text-slate-800 tracking-tight leading-none">{prediction.time}</h2>
+                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wide mt-1">
+                         Expected <span className={prediction.type === 'pee' ? 'text-blue-500' : 'text-orange-500'}>{prediction.type === 'pee' ? t.filters.pee : t.filters.poo}</span>
+                     </p>
+                 </div>
+             </div>
+
             <div className="mt-4 flex items-center justify-between relative z-10">
-                <button onClick={() => onToast("AI is optimizing schedule based on recent poo...")} className="bg-primary text-white px-4 py-1.5 rounded-lg text-sm font-semibold shadow-glow active:scale-95 transition-transform">{t.adjustSchedule}</button>
+                <button onClick={() => onToast("Schedule updated based on your feedback.")} className="bg-primary text-white px-4 py-1.5 rounded-lg text-sm font-semibold shadow-glow active:scale-95 transition-transform">{t.adjustSchedule}</button>
             </div>
+            
+            {/* Background Decor */}
+            <div className="absolute top-0 right-0 -mr-8 -mt-8 size-32 bg-primary/10 rounded-full blur-2xl z-0"></div>
         </div>
       </div>
 
