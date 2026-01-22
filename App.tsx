@@ -258,8 +258,10 @@ const LoginView = ({ onLogin, onToast }: { onLogin: () => void, onToast: (msg: s
                  </div>
 
                  <div className="animate-slide-up">
+                    <p className="text-xs font-bold text-primary px-1 uppercase tracking-wider mt-4">Account</p>
                     {renderInput('username', t.login.username)}
-                    
+                    {renderInput('password', mode === 'FORGOT' ? t.login.newPassword : t.login.password, "password")}
+
                     {(mode === 'REGISTER' || mode === 'FORGOT') && (
                         <div className="space-y-3 mb-3">
                             <p className="text-xs font-bold text-primary px-1 uppercase tracking-wider mt-4">Security Questions</p>
@@ -275,11 +277,8 @@ const LoginView = ({ onLogin, onToast }: { onLogin: () => void, onToast: (msg: s
                                 <label className="text-xs text-slate-500 font-bold ml-1">{t.login.q3}</label>
                                 {renderInput('q3', t.login.answerPlaceholder)}
                             </div>
-                            <p className="text-xs font-bold text-primary px-1 uppercase tracking-wider mt-4">Account</p>
                         </div>
                     )}
-
-                    {renderInput('password', mode === 'FORGOT' ? t.login.newPassword : t.login.password, "password")}
 
                     {mode === 'LOGIN' && (
                          <div className="flex justify-end mb-6">
