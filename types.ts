@@ -108,14 +108,22 @@ export interface Translation {
   login: {
     welcome: string;
     subtitle: string;
-    wechat: string;
-    phone: string;
-    pass: string;
-    btn: string;
-    placeholderPhone: string;
-    placeholderCode: string;
-    placeholderPass: string;
-    agree: string;
+    username: string;
+    password: string;
+    btnLogin: string;
+    btnRegister: string;
+    btnForgot: string;
+    registerTitle: string;
+    forgotTitle: string;
+    newPassword: string;
+    confirmReset: string;
+    backToLogin: string;
+    haveAccount: string;
+    noAccount: string;
+    q1: string;
+    q2: string;
+    q3: string;
+    answerPlaceholder: string;
   };
   details: {
     enfamil: string;
