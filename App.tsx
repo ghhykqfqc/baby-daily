@@ -115,54 +115,58 @@ const LanguageSwitcher = () => {
     );
 };
 
-// --- Mock Auth Service ---
+// --- Mock Auth Service --- (替换为调用真实API的服务)
 const AuthService = {
     getKey: () => 'babyLog_users',
     getTokenKey: () => 'babyLog_token',
     
-    getUsers: () => {
-        const users = localStorage.getItem(AuthService.getKey());
-        return users ? JSON.parse(users) : [];
-    },
-
-    register: (username: string, password: string, answers: any) => {
-        const users = AuthService.getUsers();
-        if (users.find((u: any) => u.username === username)) {
-            throw new Error("Username already exists");
+    // 发送认证请求到后端API
+    makeAuthRequest: async (action: string, data: any) => {
+        const response = await fetch('/api/auth', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action, ...data })
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Authentication failed');
         }
-        users.push({ username, password, answers });
-        localStorage.setItem(AuthService.getKey(), JSON.stringify(users));
+        
+        return await response.json();
     },
 
-    login: (username: string, password: string) => {
-        const users = AuthService.getUsers();
-        const user = users.find((u: any) => u.username === username && u.password === password);
-        if (user) {
-            // Mock Token
-            const token = btoa(JSON.stringify({ user: username, exp: Date.now() + 3600000 })); 
+    register: async (username: string, password: string, answers: any) => {
+        await AuthService.makeAuthRequest('register', { username, password, answers });
+    },
+
+    login: async (username: string, password: string) => {
+        const result = await AuthService.makeAuthRequest('login', { username, password });
+        if (result.user) {
+            // 保存登录状态
+            const token = btoa(JSON.stringify({ user: username, exp: Date.now() + 3600000 }));
             localStorage.setItem(AuthService.getTokenKey(), token);
-            return user;
+            return result.user;
         }
-        throw new Error("Invalid credentials");
+        throw new Error("Login failed");
     },
 
-    resetPassword: (username: string, answers: any, newPassword: string) => {
-        const users = AuthService.getUsers();
-        const userIdx = users.findIndex((u: any) => u.username === username);
-        if (userIdx === -1) throw new Error("User not found");
-
-        const user = users[userIdx];
-        if (user.answers.q1 !== answers.q1 || user.answers.q2 !== answers.q2 || user.answers.q3 !== answers.q3) {
-            throw new Error("Security answers do not match");
-        }
-
-        users[userIdx].password = newPassword;
-        localStorage.setItem(AuthService.getKey(), JSON.stringify(users));
+    resetPassword: async (username: string, answers: any, newPassword: string) => {
+        await AuthService.makeAuthRequest('forgot-password', { username, answers, newPassword });
     },
 
     checkAuth: () => {
         const token = localStorage.getItem(AuthService.getTokenKey());
-        return !!token;
+        // 检查token是否过期
+        if (token) {
+            try {
+                const parsedToken = JSON.parse(atob(token));
+                return Date.now() < parsedToken.exp;
+            } catch {
+                return false;
+            }
+        }
+        return false;
     },
 
     logout: () => {
@@ -171,7 +175,6 @@ const AuthService = {
 };
 
 // --- Login View ---
-
 const LoginView = ({ onLogin, onToast }: { onLogin: () => void, onToast: (msg: string) => void }) => {
     const { t } = useLanguage();
     const [mode, setMode] = useState<'LOGIN' | 'REGISTER' | 'FORGOT'>('LOGIN');
@@ -182,49 +185,62 @@ const LoginView = ({ onLogin, onToast }: { onLogin: () => void, onToast: (msg: s
         q2: '',
         q3: ''
     });
+    const [loading, setLoading] = useState(false); // 添加加载状态
 
     const resetForm = () => setFormData({ username: '', password: '', q1: '', q2: '', q3: '' });
 
-    const handleRegister = () => {
+    const handleRegister = async () => {
         if(!formData.username || !formData.password || !formData.q1 || !formData.q2 || !formData.q3) {
             onToast("Please fill all fields");
             return;
         }
+        
+        setLoading(true);
         try {
-            AuthService.register(formData.username, formData.password, { q1: formData.q1, q2: formData.q2, q3: formData.q3 });
+            await AuthService.register(formData.username, formData.password, { q1: formData.q1, q2: formData.q2, q3: formData.q3 });
             onToast("Registration successful! Please login.");
             setMode('LOGIN');
             resetForm();
         } catch (e: any) {
             onToast(e.message);
+        } finally {
+            setLoading(false);
         }
     };
 
-    const handleLogin = () => {
+    const handleLogin = async () => {
         if(!formData.username || !formData.password) {
              onToast("Please enter username and password");
              return;
         }
+        
+        setLoading(true);
         try {
-            AuthService.login(formData.username, formData.password);
+            await AuthService.login(formData.username, formData.password);
             onLogin();
         } catch (e: any) {
             onToast(e.message);
+        } finally {
+            setLoading(false);
         }
     };
 
-    const handleReset = () => {
-        if(!formData.username || !formData.password || !formData.q1 || !formData.q2 || !formData.q3) {
+    const handleReset = async () => {
+        if(!formData.username || !formData.q1 || !formData.q2 || !formData.q3 || !formData.password) {
             onToast("Please fill all fields");
             return;
         }
+        
+        setLoading(true);
         try {
-            AuthService.resetPassword(formData.username, { q1: formData.q1, q2: formData.q2, q3: formData.q3 }, formData.password);
+            await AuthService.resetPassword(formData.username, { q1: formData.q1, q2: formData.q2, q3: formData.q3 }, formData.password);
             onToast("Password reset successful!");
             setMode('LOGIN');
             resetForm();
         } catch (e: any) {
              onToast(e.message);
+        } finally {
+            setLoading(false);
         }
     }
 
@@ -282,15 +298,21 @@ const LoginView = ({ onLogin, onToast }: { onLogin: () => void, onToast: (msg: s
 
                     {mode === 'LOGIN' && (
                          <div className="flex justify-end mb-6">
-                             <button onClick={() => { setMode('FORGOT'); resetForm(); }} className="text-xs font-bold text-slate-400 hover:text-primary">{t.login.btnForgot}</button>
+                             <button 
+                               onClick={() => { setMode('FORGOT'); resetForm(); }} 
+                               className="text-xs font-bold text-slate-400 hover:text-primary"
+                             >
+                               {t.login.btnForgot}
+                             </button>
                          </div>
                     )}
 
                     <button 
                         onClick={mode === 'LOGIN' ? handleLogin : mode === 'REGISTER' ? handleRegister : handleReset} 
-                        className="w-full bg-slate-800 text-white py-4 rounded-xl font-bold shadow-lg active:scale-95 transition-transform mt-4"
+                        disabled={loading} // 禁用按钮当加载时
+                        className={`w-full ${loading ? 'bg-slate-400' : 'bg-slate-800 hover:bg-slate-700'} text-white py-4 rounded-xl font-bold shadow-lg active:scale-95 transition-transform mt-4`}
                     >
-                        {mode === 'LOGIN' ? t.login.btnLogin : mode === 'REGISTER' ? t.login.btnRegister : t.login.confirmReset}
+                        {loading ? 'Loading...' : (mode === 'LOGIN' ? t.login.btnLogin : mode === 'REGISTER' ? t.login.btnRegister : t.login.confirmReset)}
                     </button>
                  </div>
 
