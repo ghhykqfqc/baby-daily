@@ -6,11 +6,11 @@ import { Language, ViewState } from './types';
 const LanguageContext = createContext<{
   lang: Language;
   toggleLang: () => void;
-  t: typeof TEXTS['zh'];
+  t: typeof TEXTS['en'];
 }>({
-  lang: 'zh',
+  lang: 'en',
   toggleLang: () => {},
-  t: TEXTS['zh'],
+  t: TEXTS['en'],
 });
 
 const useLanguage = () => useContext(LanguageContext);
@@ -115,11 +115,130 @@ const LanguageSwitcher = () => {
     );
 };
 
+// --- Mock Auth Service ---
+const AuthService = {
+    getKey: () => 'babyLog_users',
+    getTokenKey: () => 'babyLog_token',
+    
+    getUsers: () => {
+        const users = localStorage.getItem(AuthService.getKey());
+        return users ? JSON.parse(users) : [];
+    },
+
+    register: (username: string, password: string, answers: any) => {
+        const users = AuthService.getUsers();
+        if (users.find((u: any) => u.username === username)) {
+            throw new Error("Username already exists");
+        }
+        users.push({ username, password, answers });
+        localStorage.setItem(AuthService.getKey(), JSON.stringify(users));
+    },
+
+    login: (username: string, password: string) => {
+        const users = AuthService.getUsers();
+        const user = users.find((u: any) => u.username === username && u.password === password);
+        if (user) {
+            // Mock Token
+            const token = btoa(JSON.stringify({ user: username, exp: Date.now() + 3600000 })); 
+            localStorage.setItem(AuthService.getTokenKey(), token);
+            return user;
+        }
+        throw new Error("Invalid credentials");
+    },
+
+    resetPassword: (username: string, answers: any, newPassword: string) => {
+        const users = AuthService.getUsers();
+        const userIdx = users.findIndex((u: any) => u.username === username);
+        if (userIdx === -1) throw new Error("User not found");
+
+        const user = users[userIdx];
+        if (user.answers.q1 !== answers.q1 || user.answers.q2 !== answers.q2 || user.answers.q3 !== answers.q3) {
+            throw new Error("Security answers do not match");
+        }
+
+        users[userIdx].password = newPassword;
+        localStorage.setItem(AuthService.getKey(), JSON.stringify(users));
+    },
+
+    checkAuth: () => {
+        const token = localStorage.getItem(AuthService.getTokenKey());
+        return !!token;
+    },
+
+    logout: () => {
+        localStorage.removeItem(AuthService.getTokenKey());
+    }
+};
+
 // --- Login View ---
 
-const LoginView = ({ onLogin }: { onLogin: () => void }) => {
+const LoginView = ({ onLogin, onToast }: { onLogin: () => void, onToast: (msg: string) => void }) => {
     const { t } = useLanguage();
-    const [method, setMethod] = useState<'wechat' | 'phone' | 'pass'>('wechat');
+    const [mode, setMode] = useState<'LOGIN' | 'REGISTER' | 'FORGOT'>('LOGIN');
+    const [formData, setFormData] = useState({
+        username: '',
+        password: '',
+        q1: '',
+        q2: '',
+        q3: ''
+    });
+
+    const resetForm = () => setFormData({ username: '', password: '', q1: '', q2: '', q3: '' });
+
+    const handleRegister = () => {
+        if(!formData.username || !formData.password || !formData.q1 || !formData.q2 || !formData.q3) {
+            onToast("Please fill all fields");
+            return;
+        }
+        try {
+            AuthService.register(formData.username, formData.password, { q1: formData.q1, q2: formData.q2, q3: formData.q3 });
+            onToast("Registration successful! Please login.");
+            setMode('LOGIN');
+            resetForm();
+        } catch (e: any) {
+            onToast(e.message);
+        }
+    };
+
+    const handleLogin = () => {
+        if(!formData.username || !formData.password) {
+             onToast("Please enter username and password");
+             return;
+        }
+        try {
+            AuthService.login(formData.username, formData.password);
+            onLogin();
+        } catch (e: any) {
+            onToast(e.message);
+        }
+    };
+
+    const handleReset = () => {
+        if(!formData.username || !formData.password || !formData.q1 || !formData.q2 || !formData.q3) {
+            onToast("Please fill all fields");
+            return;
+        }
+        try {
+            AuthService.resetPassword(formData.username, { q1: formData.q1, q2: formData.q2, q3: formData.q3 }, formData.password);
+            onToast("Password reset successful!");
+            setMode('LOGIN');
+            resetForm();
+        } catch (e: any) {
+             onToast(e.message);
+        }
+    }
+
+    const renderInput = (key: keyof typeof formData, placeholder: string, type = "text") => (
+        <div className="bg-white px-4 py-3 rounded-xl border border-slate-100 flex items-center gap-3 mb-3 shadow-sm focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+             <input 
+                type={type} 
+                value={formData[key]} 
+                onChange={e => setFormData({...formData, [key]: e.target.value})}
+                placeholder={placeholder}
+                className="flex-1 outline-none text-sm font-medium bg-transparent"
+             />
+        </div>
+    );
 
     return (
         <div className="min-h-screen bg-background-light flex flex-col items-center justify-center p-6 animate-fade-in relative overflow-hidden">
@@ -132,47 +251,60 @@ const LoginView = ({ onLogin }: { onLogin: () => void }) => {
                     <div className="size-20 bg-primary rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-lg shadow-primary/30">
                         <Icon name="child_care" className="text-4xl text-white" />
                     </div>
-                    <h1 className="text-2xl font-bold text-slate-800">{t.login.welcome}</h1>
+                    <h1 className="text-2xl font-bold text-slate-800">
+                        {mode === 'LOGIN' ? t.login.welcome : mode === 'REGISTER' ? t.login.registerTitle : t.login.forgotTitle}
+                    </h1>
                     <p className="text-slate-400 text-sm mt-1">{t.login.subtitle}</p>
                  </div>
 
-                 <div className="bg-white rounded-2xl shadow-soft p-1 mb-6 flex">
-                     <button onClick={() => setMethod('wechat')} className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all ${method === 'wechat' ? 'bg-emerald-50 text-emerald-600' : 'text-slate-400'}`}>{t.login.wechat}</button>
-                     <button onClick={() => setMethod('phone')} className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all ${method === 'phone' ? 'bg-blue-50 text-blue-600' : 'text-slate-400'}`}>{t.login.phone}</button>
-                     <button onClick={() => setMethod('pass')} className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all ${method === 'pass' ? 'bg-purple-50 text-purple-600' : 'text-slate-400'}`}>{t.login.pass}</button>
-                 </div>
+                 <div className="animate-slide-up">
+                    {renderInput('username', t.login.username)}
+                    
+                    {(mode === 'REGISTER' || mode === 'FORGOT') && (
+                        <div className="space-y-3 mb-3">
+                            <p className="text-xs font-bold text-primary px-1 uppercase tracking-wider mt-4">Security Questions</p>
+                            <div>
+                                <label className="text-xs text-slate-500 font-bold ml-1">{t.login.q1}</label>
+                                {renderInput('q1', t.login.answerPlaceholder)}
+                            </div>
+                            <div>
+                                <label className="text-xs text-slate-500 font-bold ml-1">{t.login.q2}</label>
+                                {renderInput('q2', t.login.answerPlaceholder)}
+                            </div>
+                            <div>
+                                <label className="text-xs text-slate-500 font-bold ml-1">{t.login.q3}</label>
+                                {renderInput('q3', t.login.answerPlaceholder)}
+                            </div>
+                            <p className="text-xs font-bold text-primary px-1 uppercase tracking-wider mt-4">Account</p>
+                        </div>
+                    )}
 
-                 <div className="space-y-4 mb-8">
-                     {method === 'wechat' && (
-                         <div className="flex flex-col items-center py-8">
-                             <div className="size-16 bg-emerald-100 rounded-full flex items-center justify-center mb-4 cursor-pointer hover:scale-110 transition-transform" onClick={onLogin}>
-                                 <Icon name="chat" className="text-3xl text-emerald-600" />
-                             </div>
-                             <p className="text-xs text-slate-400 font-medium">Click icon to simulate WeChat Login</p>
+                    {renderInput('password', mode === 'FORGOT' ? t.login.newPassword : t.login.password, "password")}
+
+                    {mode === 'LOGIN' && (
+                         <div className="flex justify-end mb-6">
+                             <button onClick={() => { setMode('FORGOT'); resetForm(); }} className="text-xs font-bold text-slate-400 hover:text-primary">{t.login.btnForgot}</button>
                          </div>
-                     )}
-                     {(method === 'phone' || method === 'pass') && (
-                         <>
-                            <div className="bg-white px-4 py-3 rounded-xl border border-slate-100 flex items-center gap-3">
-                                <Icon name="phone_iphone" className="text-slate-400" />
-                                <input type="text" placeholder={t.login.placeholderPhone} className="flex-1 outline-none text-sm font-medium" />
-                            </div>
-                            <div className="bg-white px-4 py-3 rounded-xl border border-slate-100 flex items-center gap-3">
-                                <Icon name={method === 'phone' ? 'sms' : 'lock'} className="text-slate-400" />
-                                <input type={method === 'pass' ? 'password' : 'text'} placeholder={method === 'phone' ? t.login.placeholderCode : t.login.placeholderPass} className="flex-1 outline-none text-sm font-medium" />
-                                {method === 'phone' && <button className="text-xs font-bold text-primary">Get Code</button>}
-                            </div>
-                         </>
-                     )}
+                    )}
+
+                    <button 
+                        onClick={mode === 'LOGIN' ? handleLogin : mode === 'REGISTER' ? handleRegister : handleReset} 
+                        className="w-full bg-slate-800 text-white py-4 rounded-xl font-bold shadow-lg active:scale-95 transition-transform mt-4"
+                    >
+                        {mode === 'LOGIN' ? t.login.btnLogin : mode === 'REGISTER' ? t.login.btnRegister : t.login.confirmReset}
+                    </button>
                  </div>
 
-                 <button onClick={onLogin} className="w-full bg-slate-800 text-white py-4 rounded-xl font-bold shadow-lg active:scale-95 transition-transform">
-                     {t.login.btn}
-                 </button>
-                 
-                 <div className="mt-4 flex items-center justify-center gap-2 text-xs text-slate-400">
-                     <div className="size-3 rounded-full border border-slate-300"></div>
-                     {t.login.agree}
+                 <div className="mt-8 text-center">
+                    {mode === 'LOGIN' ? (
+                        <p className="text-sm text-slate-500">
+                            {t.login.noAccount} <button onClick={() => { setMode('REGISTER'); resetForm(); }} className="font-bold text-primary ml-1">{t.login.btnRegister}</button>
+                        </p>
+                    ) : (
+                        <button onClick={() => { setMode('LOGIN'); resetForm(); }} className="font-bold text-slate-500 text-sm flex items-center justify-center gap-1 mx-auto hover:text-primary">
+                            <Icon name="arrow_back" className="text-sm" /> {t.login.backToLogin}
+                        </button>
+                    )}
                  </div>
              </div>
         </div>
@@ -277,7 +409,7 @@ const HomeView = ({ onNavigate, data, onDelete, onToast, onEdit, babyName }: any
                     <p className="font-bold text-lg">{item.volume}ml</p>
                   </div>
                   <div className="flex justify-between items-center mt-1">
-                    <p className="text-slate-400 text-xs font-semibold">{new Date(item.timestamp).toLocaleDateString()} {item.time}</p>
+                    <p className="text-slate-400 text-xs font-semibold">{item.time} - {new Date(item.timestamp).toLocaleDateString()}</p>
                     <span className="bg-slate-100 text-slate-500 text-[10px] px-2 py-0.5 rounded-md font-bold max-w-[120px] truncate">{item.note}</span>
                   </div>
                 </div>
@@ -382,7 +514,7 @@ const DiaperView = ({ onNavigate, data, onDelete, onToast, onEdit }: any) => {
                 <div className="flex-1">
                     <div className="flex justify-between items-center">
                         <p className="font-bold text-slate-800">{item.type === 'poo' ? t.records.poo : item.type === 'pee' ? t.records.pee : "Mixed"}</p>
-                        <span className="text-xs font-bold text-primary/60 uppercase">{new Date(item.timestamp).toLocaleDateString()} {item.time}</span>
+                        <span className="text-xs font-bold text-primary/60 uppercase">{item.time} - {new Date(item.timestamp).toLocaleDateString()}</span>
                     </div>
                     <div className="flex flex-wrap gap-2 mt-2">
                         <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-400 text-[10px] font-bold uppercase">{item.sub}</span>
@@ -870,12 +1002,18 @@ const BottomNav = ({ current, onChange }: { current: ViewState; onChange: (v: Vi
 
 // --- Main App ---
 export default function App() {
-  const [lang, setLang] = useState<Language>('zh');
+  const [lang, setLang] = useState<Language>('en');
   const [currentView, setCurrentView] = useState<ViewState>('LOGIN'); // Start at Login
   const [appData, setAppData] = useState<AppData>(INITIAL_DATA);
   const [toast, setToast] = useState({ show: false, msg: '' });
   const [editingItem, setEditingItem] = useState<any>(null);
   const [babyName, setBabyName] = useState("Leo");
+
+  useEffect(() => {
+     if(AuthService.checkAuth()) {
+         setCurrentView('HOME');
+     }
+  }, []);
 
   const toggleLang = () => setLang(prev => prev === 'en' ? 'zh' : 'en');
   const showToast = (msg: string) => setToast({ show: true, msg });
@@ -921,11 +1059,16 @@ export default function App() {
       if(currentView === 'ADD_GROWTH') setCurrentView('GROWTH_LOG');
   }
 
+  const handleLogout = () => {
+      AuthService.logout();
+      setCurrentView('LOGIN');
+  }
+
   const value = { lang, toggleLang, t: TEXTS[lang] };
 
   const renderView = () => {
     switch(currentView) {
-        case 'LOGIN': return <LoginView onLogin={() => setCurrentView('HOME')} />
+        case 'LOGIN': return <LoginView onLogin={() => setCurrentView('HOME')} onToast={showToast} />
         case 'ADD_FEEDING': return <AddFeedingView onBack={handleCancel} onSave={(item: any) => handleSave('feedings', item)} initialData={editingItem} />;
         case 'ADD_DIAPER': return <AddDiaperView onBack={handleCancel} onSave={(item: any) => handleSave('diapers', item)} initialData={editingItem} />;
         case 'ADD_SLEEP': return <AddSleepView onBack={handleCancel} onSave={(item: any) => handleSave('sleeps', item)} initialData={editingItem} />;
@@ -933,7 +1076,7 @@ export default function App() {
         case 'DIAPER_LOG': return <DiaperView onNavigate={setCurrentView} data={appData} onDelete={handleDelete} onToast={showToast} onEdit={handleEdit} />;
         case 'SLEEP_LOG': return <SleepView onNavigate={setCurrentView} data={appData} onDelete={handleDelete} onToast={showToast} onEdit={handleEdit} />;
         case 'GROWTH_LOG': return <GrowthView onNavigate={setCurrentView} data={appData} onDelete={handleDelete} onToast={showToast} onEdit={handleEdit} />;
-        case 'PROFILE': return <ProfileView onToast={showToast} onLogout={() => setCurrentView('LOGIN')} babyName={babyName} setBabyName={setBabyName} data={appData} />;
+        case 'PROFILE': return <ProfileView onToast={showToast} onLogout={handleLogout} babyName={babyName} setBabyName={setBabyName} data={appData} />;
         case 'HOME': default: return <HomeView onNavigate={setCurrentView} data={appData} onDelete={handleDelete} onToast={showToast} onEdit={handleEdit} babyName={babyName} />;
     }
   }
