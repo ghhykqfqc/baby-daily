@@ -1,29 +1,42 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { supabase } from '../../../supabaseClient';
+import { supabase } from '@/supabaseClient';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'GET') {
-    // 获取宝宝信息
-    const { babyId } = req.query;
+    const { userId, babyId } = req.query;
     
-    if (!babyId) {
-      return res.status(400).json({ error: 'Missing babyId' });
-    }
+    if (userId && !babyId) {
+      const { data, error } = await supabase
+        .from('babies')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
 
-    const { data, error } = await supabase
-      .from('babies')
-      .select('*')
-      .eq('id', babyId)
-      .single();
+      if (error) {
+        return res.status(500).json({ error: error.message });
+      }
+      res.status(200).json(data);
+    } else if (babyId) {
+      const { data, error } = await supabase
+        .from('babies')
+        .select('*')
+        .eq('id', babyId)
+        .single();
 
-    if (error) {
-      return res.status(500).json({ error: error.message });
+      if (error) {
+        return res.status(500).json({ error: error.message });
+      }
+      res.status(200).json(data);
+    } else {
+      return res.status(400).json({ error: 'Missing userId or babyId' });
     }
-    res.status(200).json(data);
   } else if (req.method === 'POST') {
-    // 创建宝宝信息
     const { user_id, name, birth_date } = req.body;
     
+    if (!user_id || !name || !birth_date) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
     const { data, error } = await supabase
       .from('babies')
       .insert([{ user_id, name, birth_date }])
@@ -35,9 +48,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     res.status(201).json(data);
   } else if (req.method === 'PUT') {
-    // 更新宝宝信息
     const { id, name, birth_date } = req.body;
     
+    if (!id) {
+      return res.status(400).json({ error: 'Missing id' });
+    }
+
     const { data, error } = await supabase
       .from('babies')
       .update({ name, birth_date })

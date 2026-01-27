@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { supabase } from '../../../supabaseClient';
+import { supabase } from '@/supabaseClient';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { babyId } = req.query;
@@ -9,7 +9,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   if (req.method === 'GET') {
-    // 获取睡眠记录
     const { data, error } = await supabase
       .from('sleeps')
       .select('*')
@@ -21,9 +20,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     res.status(200).json(data);
   } else if (req.method === 'POST') {
-    // 添加睡眠记录
     const { start, end, duration, timestamp } = req.body;
     
+    if (!start || !end || !duration) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
     const { data, error } = await supabase
       .from('sleeps')
       .insert([{ 
@@ -31,7 +33,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         start, 
         end, 
         duration, 
-        timestamp 
+        timestamp: timestamp || Date.now()
       }])
       .select()
       .single();
@@ -41,9 +43,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     res.status(201).json(data);
   } else if (req.method === 'PUT') {
-    // 更新睡眠记录
     const { id, start, end, duration, timestamp } = req.body;
     
+    if (!id) {
+      return res.status(400).json({ error: 'Missing id' });
+    }
+
     const { data, error } = await supabase
       .from('sleeps')
       .update({ start, end, duration, timestamp })
@@ -56,9 +61,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     res.status(200).json(data);
   } else if (req.method === 'DELETE') {
-    // 删除睡眠记录
     const { id } = req.query;
     
+    if (!id) {
+      return res.status(400).json({ error: 'Missing id' });
+    }
+
     const { error } = await supabase
       .from('sleeps')
       .delete()

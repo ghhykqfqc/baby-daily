@@ -115,12 +115,101 @@ const LanguageSwitcher = () => {
     );
 };
 
-// --- Mock Auth Service --- (替换为调用真实API的服务)
+const DataService = {
+    async fetchAll(babyId: string) {
+        const [feedings, diapers, sleeps, growth] = await Promise.all([
+            fetch(`/api/feedings?babyId=${babyId}`).then(r => r.json()),
+            fetch(`/api/diapers?babyId=${babyId}`).then(r => r.json()),
+            fetch(`/api/sleeps?babyId=${babyId}`).then(r => r.json()),
+            fetch(`/api/growth?babyId=${babyId}`).then(r => r.json())
+        ]);
+        return { feedings, diapers, sleeps, growth };
+    },
+
+    async saveRecord(type: string, babyId: string, data: any) {
+        const url = type === 'feeding' ? '/api/feedings' :
+                   type === 'diaper' ? '/api/diapers' :
+                   type === 'sleep' ? '/api/sleeps' : '/api/growth';
+        
+        const body = { baby_id: babyId, ...data };
+
+        const response = await fetch(`${url}?babyId=${babyId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to save record');
+        }
+        
+        return await response.json();
+    },
+
+    async updateRecord(type: string, data: any) {
+        const url = type === 'feeding' ? '/api/feedings' :
+                   type === 'diaper' ? '/api/diapers' :
+                   type === 'sleep' ? '/api/sleeps' : '/api/growth';
+        
+        const response = await fetch(url, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to update record');
+        }
+        
+        return await response.json();
+    },
+
+    async deleteRecord(type: string, id: number) {
+        const url = type === 'feeding' ? '/api/feedings' :
+                   type === 'diaper' ? '/api/diapers' :
+                   type === 'sleep' ? '/api/sleeps' : '/api/growth';
+        
+        const response = await fetch(`${url}?id=${id}`, {
+            method: 'DELETE'
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to delete record');
+        }
+    },
+
+    async fetchBabies(userId: string) {
+        const response = await fetch(`/api/baby?userId=${userId}`);
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to fetch babies');
+        }
+        return await response.json();
+    },
+
+    async createBaby(userId: string, name: string, birthDate: string) {
+        const response = await fetch('/api/baby', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: userId, name, birth_date: birthDate })
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to create baby');
+        }
+        
+        return await response.json();
+    }
+};
+
 const AuthService = {
     getKey: () => 'babyLog_users',
     getTokenKey: () => 'babyLog_token',
     
-    // 发送认证请求到后端API
     makeAuthRequest: async (action: string, data: any) => {
         const response = await fetch('/api/auth', {
             method: 'POST',
@@ -137,14 +226,14 @@ const AuthService = {
     },
 
     register: async (username: string, password: string, answers: any) => {
-        await AuthService.makeAuthRequest('register', { username, password, answers });
+        const result = await AuthService.makeAuthRequest('register', { username, password, answers });
+        return result.user;
     },
 
     login: async (username: string, password: string) => {
         const result = await AuthService.makeAuthRequest('login', { username, password });
         if (result.user) {
-            // 保存登录状态
-            const token = btoa(JSON.stringify({ user: username, exp: Date.now() + 3600000 }));
+            const token = btoa(JSON.stringify({ user: result.user, exp: Date.now() + 86400000 }));
             localStorage.setItem(AuthService.getTokenKey(), token);
             return result.user;
         }
@@ -157,7 +246,6 @@ const AuthService = {
 
     checkAuth: () => {
         const token = localStorage.getItem(AuthService.getTokenKey());
-        // 检查token是否过期
         if (token) {
             try {
                 const parsedToken = JSON.parse(atob(token));
@@ -169,13 +257,27 @@ const AuthService = {
         return false;
     },
 
+    getUser: () => {
+        const token = localStorage.getItem(AuthService.getTokenKey());
+        if (token) {
+            try {
+                const parsedToken = JSON.parse(atob(token));
+                if (Date.now() < parsedToken.exp) {
+                    return parsedToken.user;
+                }
+            } catch {
+                return null;
+            }
+        }
+        return null;
+    },
+
     logout: () => {
         localStorage.removeItem(AuthService.getTokenKey());
     }
 };
 
-// --- Login View ---
-const LoginView = ({ onLogin, onToast }: { onLogin: () => void, onToast: (msg: string) => void }) => {
+const LoginView = ({ onLogin, onToast }: { onLogin: (user: any) => void, onToast: (msg: string) => void }) => {
     const { t } = useLanguage();
     const [mode, setMode] = useState<'LOGIN' | 'REGISTER' | 'FORGOT'>('LOGIN');
     const [formData, setFormData] = useState({
@@ -216,8 +318,8 @@ const LoginView = ({ onLogin, onToast }: { onLogin: () => void, onToast: (msg: s
         
         setLoading(true);
         try {
-            await AuthService.login(formData.username, formData.password);
-            onLogin();
+            const user = await AuthService.login(formData.username, formData.password);
+            onLogin(user);
         } catch (e: any) {
             onToast(e.message);
         } finally {
@@ -1021,50 +1123,98 @@ const BottomNav = ({ current, onChange }: { current: ViewState; onChange: (v: Vi
     );
 };
 
-// --- Main App ---
 export default function App() {
   const [lang, setLang] = useState<Language>('en');
-  const [currentView, setCurrentView] = useState<ViewState>('LOGIN'); // Start at Login
-  const [appData, setAppData] = useState<AppData>(INITIAL_DATA);
+  const [currentView, setCurrentView] = useState<ViewState>('LOGIN');
+  const [appData, setAppData] = useState<AppData>({ feedings: [], diapers: [], sleeps: [], growth: [] });
   const [toast, setToast] = useState({ show: false, msg: '' });
   const [editingItem, setEditingItem] = useState<any>(null);
   const [babyName, setBabyName] = useState("Leo");
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentBaby, setCurrentBaby] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const loadData = async (babyId: string) => {
+    setIsLoading(true);
+    try {
+      const data = await DataService.fetchAll(babyId);
+      setAppData(data);
+    } catch (e: any) {
+      setToast({ show: true, msg: e.message || 'Failed to load data' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-     if(AuthService.checkAuth()) {
-         setCurrentView('HOME');
+     const user = AuthService.getUser();
+     if (user) {
+         setCurrentUser(user);
      }
   }, []);
+
+  useEffect(() => {
+     if (currentUser) {
+         DataService.fetchBabies(currentUser.id).then(babies => {
+             if (babies && babies.length > 0) {
+                 setCurrentBaby(babies[0]);
+                 setBabyName(babies[0].name);
+                 loadData(babies[0].id);
+                 setCurrentView('HOME');
+             }
+         }).catch(() => {
+             setCurrentView('HOME');
+         });
+     }
+  }, [currentUser]);
 
   const toggleLang = () => setLang(prev => prev === 'en' ? 'zh' : 'en');
   const showToast = (msg: string) => setToast({ show: true, msg });
 
-  const handleSave = (section: keyof AppData, newItem: any) => {
-      setAppData(prev => {
-          // Check if editing existing item
-          const exists = prev[section].some(i => i.id === newItem.id);
-          let newList;
+  const handleSave = async (section: keyof AppData, newItem: any) => {
+      if (!currentBaby) return;
+      
+      const type = section === 'feedings' ? 'feeding' :
+                   section === 'diapers' ? 'diaper' :
+                   section === 'sleeps' ? 'sleep' : 'growth';
+      
+      try {
+          let savedItem;
+          const exists = appData[section].some((i: any) => i.id === newItem.id);
+          
           if (exists) {
-              newList = prev[section].map(i => i.id === newItem.id ? newItem : i);
+              savedItem = await DataService.updateRecord(type, newItem);
           } else {
-              newList = [newItem, ...prev[section]];
+              savedItem = await DataService.saveRecord(type, currentBaby.id, newItem);
           }
-          // Sort by timestamp descending (newest first)
-          newList.sort((a, b) => b.timestamp - a.timestamp);
-          return { ...prev, [section]: newList };
-      });
-      showToast(editingItem ? "Record updated!" : "Record saved!");
-      setEditingItem(null);
-      // Navigate back
-      if(section === 'feedings') setCurrentView('HOME');
-      if(section === 'diapers') setCurrentView('DIAPER_LOG');
-      if(section === 'sleeps') setCurrentView('SLEEP_LOG');
-      if(section === 'growth') setCurrentView('GROWTH_LOG');
+          
+          await loadData(currentBaby.id);
+          showToast(editingItem ? "Record updated!" : "Record saved!");
+          setEditingItem(null);
+          
+          if(section === 'feedings') setCurrentView('HOME');
+          if(section === 'diapers') setCurrentView('DIAPER_LOG');
+          if(section === 'sleeps') setCurrentView('SLEEP_LOG');
+          if(section === 'growth') setCurrentView('GROWTH_LOG');
+      } catch (e: any) {
+          showToast(e.message || 'Failed to save record');
+      }
   }
 
-  const handleDelete = (id: number, section: keyof AppData) => {
-      setAppData(prev => ({ ...prev, [section]: prev[section].filter(item => item.id !== id) }));
-      showToast("Record deleted");
+  const handleDelete = async (id: number, section: keyof AppData) => {
+      if (!currentBaby) return;
+      
+      const type = section === 'feedings' ? 'feeding' :
+                   section === 'diapers' ? 'diaper' :
+                   section === 'sleeps' ? 'sleep' : 'growth';
+      
+      try {
+          await DataService.deleteRecord(type, id);
+          await loadData(currentBaby.id);
+          showToast("Record deleted");
+      } catch (e: any) {
+          showToast(e.message || 'Failed to delete record');
+      }
   }
 
   const handleEdit = (item: any, view: ViewState) => {
@@ -1082,14 +1232,128 @@ export default function App() {
 
   const handleLogout = () => {
       AuthService.logout();
+      setCurrentUser(null);
+      setCurrentBaby(null);
+      setAppData({ feedings: [], diapers: [], sleeps: [], growth: [] });
       setCurrentView('LOGIN');
+  }
+
+  const handleLogin = async (user: any) => {
+      setCurrentUser(user);
+      
+      try {
+          const babies = await DataService.fetchBabies(user.id);
+          if (babies && babies.length > 0) {
+              const baby = babies[0];
+              setCurrentBaby(baby);
+              setBabyName(baby.name);
+              await loadData(baby.id);
+              setCurrentView('HOME');
+          } else {
+              setToast({ show: true, msg: 'No baby found. Please create a baby profile.' });
+          }
+      } catch (e: any) {
+          setToast({ show: true, msg: e.message || 'Failed to load baby data' });
+      }
   }
 
   const value = { lang, toggleLang, t: TEXTS[lang] };
 
+  const CreateBabyView = () => {
+      const { t } = useLanguage();
+      const [babyName, setBabyNameInput] = useState('');
+      const [birthDate, setBirthDate] = useState(new Date().toISOString().split('T')[0]);
+      const [loading, setLoading] = useState(false);
+
+      const handleCreate = async () => {
+          if (!babyName || !birthDate) {
+              showToast('Please fill all fields');
+              return;
+          }
+          
+          setLoading(true);
+          try {
+              const baby = await DataService.createBaby(currentUser.id, babyName, birthDate);
+              setCurrentBaby(baby);
+              setBabyName(baby.name);
+              await loadData(baby.id);
+              showToast('Baby profile created!');
+              setCurrentView('HOME');
+          } catch (e: any) {
+              showToast(e.message || 'Failed to create baby');
+          } finally {
+              setLoading(false);
+          }
+      };
+
+      return (
+          <div className="min-h-screen bg-background-light flex flex-col items-center justify-center p-6">
+              <div className="w-full max-w-sm">
+                  <div className="text-center mb-10">
+                      <div className="size-20 bg-primary rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-lg shadow-primary/30">
+                          <Icon name="child_care" className="text-4xl text-white" />
+                      </div>
+                      <h1 className="text-2xl font-bold text-slate-800">Create Baby Profile</h1>
+                      <p className="text-slate-400 text-sm mt-1">Add your baby's information</p>
+                  </div>
+
+                  <div className="space-y-4">
+                      <div>
+                          <label className="text-xs font-bold text-primary px-1 uppercase tracking-wider">Baby's Name</label>
+                          <div className="bg-white px-4 py-3 rounded-xl border border-slate-100 flex items-center gap-3 shadow-sm mt-2">
+                              <input 
+                                  type="text" 
+                                  value={babyName}
+                                  onChange={(e) => setBabyNameInput(e.target.value)}
+                                  placeholder="Enter baby's name"
+                                  className="flex-1 outline-none text-sm font-medium bg-transparent"
+                              />
+                          </div>
+                      </div>
+
+                      <div>
+                          <label className="text-xs font-bold text-primary px-1 uppercase tracking-wider">Birth Date</label>
+                          <div className="bg-white px-4 py-3 rounded-xl border border-slate-100 flex items-center gap-3 shadow-sm mt-2">
+                              <input 
+                                  type="date" 
+                                  value={birthDate}
+                                  onChange={(e) => setBirthDate(e.target.value)}
+                                  className="flex-1 outline-none text-sm font-medium bg-transparent"
+                              />
+                          </div>
+                      </div>
+
+                      <button 
+                          onClick={handleCreate}
+                          disabled={loading}
+                          className={`w-full ${loading ? 'bg-slate-400' : 'bg-slate-800 hover:bg-slate-700'} text-white py-4 rounded-xl font-bold shadow-lg active:scale-95 transition-transform mt-4`}
+                      >
+                          {loading ? 'Creating...' : 'Create Profile'}
+                      </button>
+                  </div>
+              </div>
+          </div>
+      );
+  };
+
   const renderView = () => {
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="text-center">
+                    <Icon name="hourglass_empty" className="text-4xl text-primary animate-pulse" />
+                    <p className="mt-2 text-slate-500 font-medium">Loading...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (currentUser && !currentBaby && currentView !== 'LOGIN') {
+        return <CreateBabyView />;
+    }
+    
     switch(currentView) {
-        case 'LOGIN': return <LoginView onLogin={() => setCurrentView('HOME')} onToast={showToast} />
+        case 'LOGIN': return <LoginView onLogin={handleLogin} onToast={showToast} />
         case 'ADD_FEEDING': return <AddFeedingView onBack={handleCancel} onSave={(item: any) => handleSave('feedings', item)} initialData={editingItem} />;
         case 'ADD_DIAPER': return <AddDiaperView onBack={handleCancel} onSave={(item: any) => handleSave('diapers', item)} initialData={editingItem} />;
         case 'ADD_SLEEP': return <AddSleepView onBack={handleCancel} onSave={(item: any) => handleSave('sleeps', item)} initialData={editingItem} />;

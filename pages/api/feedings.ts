@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { supabase } from '../../../supabaseClient';
+import { supabase } from '@/supabaseClient';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { babyId } = req.query;
@@ -9,7 +9,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   if (req.method === 'GET') {
-    // 获取喂养记录
     const { data, error } = await supabase
       .from('feedings')
       .select('*')
@@ -21,9 +20,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     res.status(200).json(data);
   } else if (req.method === 'POST') {
-    // 添加喂养记录
     const { type, volume, time, timestamp, note } = req.body;
     
+    if (!type || !volume || !time) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
     const { data, error } = await supabase
       .from('feedings')
       .insert([{ 
@@ -31,8 +33,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         type, 
         volume, 
         time, 
-        timestamp, 
-        note 
+        timestamp: timestamp || Date.now(), 
+        note: note || ''
       }])
       .select()
       .single();
@@ -42,9 +44,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     res.status(201).json(data);
   } else if (req.method === 'PUT') {
-    // 更新喂养记录
     const { id, type, volume, time, timestamp, note } = req.body;
     
+    if (!id) {
+      return res.status(400).json({ error: 'Missing id' });
+    }
+
     const { data, error } = await supabase
       .from('feedings')
       .update({ type, volume, time, timestamp, note })
@@ -57,9 +62,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     res.status(200).json(data);
   } else if (req.method === 'DELETE') {
-    // 删除喂养记录
     const { id } = req.query;
     
+    if (!id) {
+      return res.status(400).json({ error: 'Missing id' });
+    }
+
     const { error } = await supabase
       .from('feedings')
       .delete()

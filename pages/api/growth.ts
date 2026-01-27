@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { supabase } from '../../../supabaseClient';
+import { supabase } from '@/supabaseClient';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { babyId } = req.query;
@@ -9,7 +9,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   if (req.method === 'GET') {
-    // 获取成长记录
     const { data, error } = await supabase
       .from('growth')
       .select('*')
@@ -21,17 +20,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     res.status(200).json(data);
   } else if (req.method === 'POST') {
-    // 添加成长记录
     const { weight, height, date, timestamp } = req.body;
     
+    if (!weight || !height || !date) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
     const { data, error } = await supabase
       .from('growth')
       .insert([{ 
         baby_id: babyId, 
-        weight, 
-        height, 
+        weight: String(weight), 
+        height: String(height), 
         date, 
-        timestamp 
+        timestamp: timestamp || new Date(date).getTime()
       }])
       .select()
       .single();
@@ -41,12 +43,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     res.status(201).json(data);
   } else if (req.method === 'PUT') {
-    // 更新成长记录
     const { id, weight, height, date, timestamp } = req.body;
     
+    if (!id) {
+      return res.status(400).json({ error: 'Missing id' });
+    }
+
     const { data, error } = await supabase
       .from('growth')
-      .update({ weight, height, date, timestamp })
+      .update({ weight: String(weight), height: String(height), date, timestamp })
       .eq('id', id)
       .select()
       .single();
@@ -56,9 +61,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     res.status(200).json(data);
   } else if (req.method === 'DELETE') {
-    // 删除成长记录
     const { id } = req.query;
     
+    if (!id) {
+      return res.status(400).json({ error: 'Missing id' });
+    }
+
     const { error } = await supabase
       .from('growth')
       .delete()
