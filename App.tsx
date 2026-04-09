@@ -1124,7 +1124,7 @@ const BottomNav = ({ current, onChange }: { current: ViewState; onChange: (v: Vi
 };
 
 export default function App() {
-  const [lang, setLang] = useState<Language>('en');
+  const [lang, setLang] = useState<Language>('zh');
   const [currentView, setCurrentView] = useState<ViewState>('LOGIN');
   const [appData, setAppData] = useState<AppData>({ feedings: [], diapers: [], sleeps: [], growth: [] });
   const [toast, setToast] = useState({ show: false, msg: '' });
@@ -1179,7 +1179,7 @@ export default function App() {
                    section === 'sleeps' ? 'sleep' : 'growth';
       
       try {
-          let savedItem;
+          var savedItem;
           const exists = appData[section].some((i: any) => i.id === newItem.id);
           
           if (exists) {
@@ -1240,21 +1240,24 @@ export default function App() {
 
   const handleLogin = async (user: any) => {
       setCurrentUser(user);
+      await loadData(user.id);
+      setCurrentView('HOME');
       
-      try {
-          const babies = await DataService.fetchBabies(user.id);
-          if (babies && babies.length > 0) {
-              const baby = babies[0];
-              setCurrentBaby(baby);
-              setBabyName(baby.name);
-              await loadData(baby.id);
-              setCurrentView('HOME');
-          } else {
-              setToast({ show: true, msg: 'No baby found. Please create a baby profile.' });
-          }
-      } catch (e: any) {
-          setToast({ show: true, msg: e.message || 'Failed to load baby data' });
-      }
+    //   try {
+    //       const babies = await DataService.fetchBabies(user.id);
+    //       console.log("babies======>", babies);
+    //       if (babies && babies.length > 0) {
+    //           const baby = babies[0];
+    //           setCurrentBaby(baby);
+    //           setBabyName(baby.name);
+    //           await loadData(baby.id);
+    //           setCurrentView('HOME');
+    //       } else {
+    //           setToast({ show: true, msg: 'No baby found. Please create a baby profile.' });
+    //       }
+    //   } catch (e: any) {
+    //       setToast({ show: true, msg: e.message || 'Failed to load baby data' });
+    //   }
   }
 
   const value = { lang, toggleLang, t: TEXTS[lang] };
