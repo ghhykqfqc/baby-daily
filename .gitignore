@@ -26,3 +26,11 @@ dist-ssr
 # Next.js
 .next/
 out/
+
+# Docusaurus
+AGENTS.md
+API_INTEGRATION_SUMMARY.md
+
+# Dotenv
+.env.local
+.env.local.example
