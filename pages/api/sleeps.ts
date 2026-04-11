@@ -20,19 +20,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     res.status(200).json(data);
   } else if (req.method === 'POST') {
-    const { start, end, duration, timestamp } = req.body;
-    
-    if (!start || !end || !duration) {
+    const { start_time, end_time, duration, timestamp } = req.body;
+
+    if (!start_time || !end_time || !duration) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
     const { data, error } = await supabase
       .from('sleeps')
-      .insert([{ 
-        baby_id: babyId, 
-        start, 
-        end, 
-        duration, 
+      .insert([{
+        baby_id: babyId,
+        start_time,
+        end_time,
+        duration,
         timestamp: timestamp || Date.now()
       }])
       .select()
@@ -43,15 +43,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     res.status(201).json(data);
   } else if (req.method === 'PUT') {
-    const { id, start, end, duration, timestamp } = req.body;
-    
+    const { id, start_time, end_time, duration, timestamp } = req.body;
+
     if (!id) {
       return res.status(400).json({ error: 'Missing id' });
     }
 
     const { data, error } = await supabase
       .from('sleeps')
-      .update({ start, end, duration, timestamp })
+      .update({ start_time, end_time, duration, timestamp })
       .eq('id', id)
       .select()
       .single();

@@ -1,3 +1,16 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #66ccaa;
+  --color-background-light: #fdfdfc;
+  --color-background-dark: #2e3b48;
+  --color-poo-accent: #d4a373;
+  --color-pee-accent: #8ecae6;
+  --font-sans: "Plus Jakarta Sans", sans-serif;
+  --shadow-soft: 0 8px 30px rgb(0 0 0 / 4%);
+  --shadow-glow: 0 0 20px -5px rgba(102, 204, 170, 0.5);
+}
+
 /* Hide scrollbar for Chrome, Safari and Opera */
 .no-scrollbar::-webkit-scrollbar {
     display: none;

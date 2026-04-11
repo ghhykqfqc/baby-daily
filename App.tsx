@@ -18,7 +18,7 @@ const useLanguage = () => useContext(LanguageContext);
 // --- Types & Interfaces ---
 interface Feeding { id: number; type: string; volume: number; time: string; timestamp: number; note: string; }
 interface Diaper { id: number; type: 'pee' | 'poo' | 'mixed'; sub: string; time: string; timestamp: number; color?: string; }
-interface Sleep { id: number; start: string; end: string; duration: string; timestamp: number; }
+interface Sleep { id: number; start_time: string; end_time: string; duration: string; timestamp: number; }
 interface Growth { id: number; weight: string; height: string; date: string; timestamp: number; }
 
 interface AppData {
@@ -39,8 +39,8 @@ const INITIAL_DATA: AppData = {
         { id: 2, type: 'pee', sub: 'Normal', time: "11:15", timestamp: now.getTime() - 15000000 },
     ],
     sleeps: [
-        { id: 1, start: "13:00", end: "15:00", duration: "2h 0m", timestamp: now.getTime() - 3600000 },
-        { id: 2, start: "10:00", end: "10:45", duration: "45m", timestamp: now.getTime() - 18000000 },
+        { id: 1, start_time: "13:00", end_time: "15:00", duration: "2h 0m", timestamp: now.getTime() - 3600000 },
+        { id: 2, start_time: "10:00", end_time: "10:45", duration: "45m", timestamp: now.getTime() - 18000000 },
     ],
     growth: [
         { id: 1, weight: "6.50", height: "62.00", date: new Date().toISOString().split('T')[0], timestamp: now.getTime() },
@@ -696,7 +696,7 @@ const SleepView = ({ onNavigate, data, onDelete, onToast, onEdit }: any) => {
                                      <h4 className="font-bold text-slate-800">{t.records.sleep}</h4>
                                      <span className="text-indigo-500 font-bold text-sm bg-indigo-50 px-2 py-1 rounded-lg">{item.duration}</span>
                                  </div>
-                                 <div className="flex items-center gap-2 text-slate-400 text-sm font-medium"><Icon name="schedule" className="text-sm" />{item.start} - {item.end} <span className="text-xs ml-2">({new Date(item.timestamp).toLocaleDateString()})</span></div>
+                                 <div className="flex items-center gap-2 text-slate-400 text-sm font-medium"><Icon name="schedule" className="text-sm" />{item.start_time} - {item.end_time} <span className="text-xs ml-2">({new Date(item.timestamp).toLocaleDateString()})</span></div>
                                  <div className="absolute right-2 top-2 flex flex-col gap-1">
                                     <button onClick={() => { if(window.confirm("Delete?")) onDelete(item.id, 'sleeps'); }} className="size-8 flex items-center justify-center text-slate-300 hover:text-rose-500"><Icon name="close" className="text-sm" /></button>
                                     <button onClick={() => onEdit(item, 'ADD_SLEEP')} className="size-8 flex items-center justify-center text-slate-300 hover:text-primary"><Icon name="edit" className="text-sm" /></button>
@@ -818,7 +818,7 @@ const ProfileView = ({ onToast, onLogout, babyName, setBabyName, data }: any) =>
             ["Category", "Date", "Time", "Details", "Value"],
             ...data.feedings.map((f: Feeding) => ["Feeding", new Date(f.timestamp).toLocaleDateString(), f.time, f.type, f.volume + "ml"]),
             ...data.diapers.map((d: Diaper) => ["Diaper", new Date(d.timestamp).toLocaleDateString(), d.time, d.type, d.sub]),
-            ...data.sleeps.map((s: Sleep) => ["Sleep", new Date(s.timestamp).toLocaleDateString(), `${s.start}-${s.end}`, "Duration", s.duration]),
+            ...data.sleeps.map((s: Sleep) => ["Sleep", new Date(s.timestamp).toLocaleDateString(), `${s.start_time}-${s.end_time}`, "Duration", s.duration]),
             ...data.growth.map((g: Growth) => ["Growth", g.date, "-", `H:${g.height}cm`, `W:${g.weight}kg`]),
         ];
         const csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.join(",")).join("\n");
@@ -1031,14 +1031,14 @@ const AddDiaperView = ({ onBack, onSave, initialData }: any) => {
 
 const AddSleepView = ({ onBack, onSave, initialData }: any) => {
     const { t } = useLanguage();
-    const [start, setStart] = useState(initialData?.start || "20:00");
-    const [end, setEnd] = useState(initialData?.end || "06:00");
+    const [start_time, setStart_time] = useState(initialData?.start_time || "20:00");
+    const [end_time, setEnd_time] = useState(initialData?.end_time || "06:00");
 
     const calculateDuration = () => {
-        const [sh, sm] = start.split(':').map(Number);
-        const [eh, em] = end.split(':').map(Number);
+        const [sh, sm] = start_time.split(':').map(Number);
+        const [eh, em] = end_time.split(':').map(Number);
         let mins = (eh * 60 + em) - (sh * 60 + sm);
-        if (mins < 0) mins += 24 * 60; 
+        if (mins < 0) mins += 24 * 60;
         const h = Math.floor(mins / 60);
         const m = mins % 60;
         return `${h}h ${m}m`;
@@ -1047,8 +1047,8 @@ const AddSleepView = ({ onBack, onSave, initialData }: any) => {
     const handleSave = () => {
         onSave({
             id: initialData?.id || Date.now(),
-            start: start,
-            end: end,
+            start_time: start_time,
+            end_time: end_time,
             duration: calculateDuration(),
             timestamp: initialData?.timestamp || Date.now()
         });
@@ -1057,9 +1057,9 @@ const AddSleepView = ({ onBack, onSave, initialData }: any) => {
     return (
         <AddLayout title={initialData ? t.sleepAdd.editTitle : t.sleepAdd.title} onCancel={onBack} onSave={handleSave}>
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-50 flex items-center justify-between gap-4">
-                <div className="flex-1"><p className="text-xs font-bold uppercase text-slate-400 mb-1">{t.sleepAdd.start}</p><input type="time" value={start} onChange={(e) => setStart(e.target.value)} className="text-2xl font-bold bg-transparent outline-none w-full" /></div>
+                <div className="flex-1"><p className="text-xs font-bold uppercase text-slate-400 mb-1">{t.sleepAdd.start}</p><input type="time" value={start_time} onChange={(e) => setStart_time(e.target.value)} className="text-2xl font-bold bg-transparent outline-none w-full" /></div>
                 <Icon name="arrow_forward" className="text-slate-300" />
-                <div className="flex-1 text-right"><p className="text-xs font-bold uppercase text-slate-400 mb-1">{t.sleepAdd.end}</p><input type="time" value={end} onChange={(e) => setEnd(e.target.value)} className="text-2xl font-bold bg-transparent outline-none w-full text-right" /></div>
+                <div className="flex-1 text-right"><p className="text-xs font-bold uppercase text-slate-400 mb-1">{t.sleepAdd.end}</p><input type="time" value={end_time} onChange={(e) => setEnd_time(e.target.value)} className="text-2xl font-bold bg-transparent outline-none w-full text-right" /></div>
             </div>
             <div className="bg-indigo-50 p-4 rounded-xl flex justify-center"><p className="text-indigo-600 font-bold">Total Duration: {calculateDuration()}</p></div>
         </AddLayout>
