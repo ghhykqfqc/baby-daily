@@ -1,6 +1,0 @@
-{
-  "version": 3,
-  "sources": [],
-  "sections": [
-    {"offset": {"line": 1, "column": 0}, "map": {"version":3,"sources":["file:///D:/Program/person/gitProgram/baby-daily/App.css"],"sourcesContent":["/* Hide scrollbar for Chrome, Safari and Opera */\n.no-scrollbar::-webkit-scrollbar {\n    display: none;\n}\n/* Hide scrollbar for IE, Edge and Firefox */\n.no-scrollbar {\n    -ms-overflow-style: none;  /* IE and Edge */\n    scrollbar-width: none;  /* Firefox */\n}\n.material-symbols-outlined {\n  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;\n}\n/* Smooth range slider */\ninput[type=range]::-webkit-slider-thumb {\n  -webkit-appearance: none;\n  height: 20px;\n  width: 20px;\n  border-radius: 50%;\n  background: #66ccaa;\n  border: 2px solid white;\n  box-shadow: 0 2px 6px rgba(0,0,0,0.2);\n  margin-top: -8px;\n}\ninput[type=range]::-webkit-slider-runnable-track {\n  width: 100%;\n  height: 6px;\n  cursor: pointer;\n  background: #e5e7eb;\n  border-radius: 999px;\n}\n"],"names":[],"mappings":"AACA;;;;AAIA;;;;;AAIA;;;;AAIA;;;;;;;;;;;AAUA"}}]
-}

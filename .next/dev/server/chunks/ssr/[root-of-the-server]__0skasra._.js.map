@@ -1,6 +1,0 @@
-{
-  "version": 3,
-  "sources": [],
-  "sections": [
-    {"offset": {"line": 4, "column": 0}, "map": {"version":3,"sources":["file:///D:/Program/person/gitProgram/baby-daily/pages/index.tsx"],"sourcesContent":["export { default } from '../App';\n"],"names":[],"mappings":";AAAA"}}]
-}
