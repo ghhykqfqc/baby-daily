@@ -147,34 +147,36 @@ const DataService = {
         return await response.json();
     },
 
-    async updateRecord(type: string, data: any) {
+    async updateRecord(type: string, babyId: string, data: any) {
         const url = type === 'feeding' ? '/api/feedings' :
                    type === 'diaper' ? '/api/diapers' :
                    type === 'sleep' ? '/api/sleeps' : '/api/growth';
-        
-        const response = await fetch(url, {
+
+        const body = { baby_id: babyId, ...data };
+
+        const response = await fetch(`${url}?babyId=${babyId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
+            body: JSON.stringify(body)
         });
-        
+
         if (!response.ok) {
             const error = await response.json();
             throw new Error(error.error || 'Failed to update record');
         }
-        
+
         return await response.json();
     },
 
-    async deleteRecord(type: string, id: number) {
+    async deleteRecord(type: string, id: number, babyId: string) {
         const url = type === 'feeding' ? '/api/feedings' :
                    type === 'diaper' ? '/api/diapers' :
                    type === 'sleep' ? '/api/sleeps' : '/api/growth';
-        
-        const response = await fetch(`${url}?id=${id}`, {
+
+        const response = await fetch(`${url}?id=${id}&babyId=${babyId}`, {
             method: 'DELETE'
         });
-        
+
         if (!response.ok) {
             const error = await response.json();
             throw new Error(error.error || 'Failed to delete record');
@@ -1173,25 +1175,25 @@ export default function App() {
 
   const handleSave = async (section: keyof AppData, newItem: any) => {
       if (!currentBaby) return;
-      
+
       const type = section === 'feedings' ? 'feeding' :
                    section === 'diapers' ? 'diaper' :
                    section === 'sleeps' ? 'sleep' : 'growth';
-      
+
       try {
           var savedItem;
           const exists = appData[section].some((i: any) => i.id === newItem.id);
-          
+
           if (exists) {
-              savedItem = await DataService.updateRecord(type, newItem);
+              savedItem = await DataService.updateRecord(type, currentBaby.id, newItem);
           } else {
               savedItem = await DataService.saveRecord(type, currentBaby.id, newItem);
           }
-          
+
           await loadData(currentBaby.id);
           showToast(editingItem ? "Record updated!" : "Record saved!");
           setEditingItem(null);
-          
+
           if(section === 'feedings') setCurrentView('HOME');
           if(section === 'diapers') setCurrentView('DIAPER_LOG');
           if(section === 'sleeps') setCurrentView('SLEEP_LOG');
@@ -1203,13 +1205,13 @@ export default function App() {
 
   const handleDelete = async (id: number, section: keyof AppData) => {
       if (!currentBaby) return;
-      
+
       const type = section === 'feedings' ? 'feeding' :
                    section === 'diapers' ? 'diaper' :
                    section === 'sleeps' ? 'sleep' : 'growth';
-      
+
       try {
-          await DataService.deleteRecord(type, id);
+          await DataService.deleteRecord(type, id, currentBaby.id);
           await loadData(currentBaby.id);
           showToast("Record deleted");
       } catch (e: any) {
