@@ -1,4 +1,5 @@
 import React, { useState, createContext, useContext, useEffect, useMemo, useRef } from 'react';
+import Image from 'next/image';
 import { TEXTS } from './constants';
 import { Language, ViewState } from './types';
 
@@ -465,8 +466,8 @@ const HomeView = ({ onNavigate, data, onDelete, onToast, onEdit, babyName }: any
       {/* Top Bar */}
       <div className="sticky top-0 bg-background-light z-30 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="size-10 rounded-full border-2 border-primary/20 overflow-hidden">
-            <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuDHscGotOuiDiUWycvqIOLyjz_DqrCHIYvjDsE-o6Fy4cwM8_3vNKrzlfPw7BAeDwWcfvCRF5_QMT4SMLedDvyfTdUNSHDXc7NPDpMP4wCtqNBcHSbzoMg0HPiAEwKg31TI1OmXPqgP3vPHln0X5DOxQVQIjPsroDhv-XnikciBjxTiM32d1LNu8FgfeDaQ2o1a-3GyvY7EGL7husEQBYdyT6B2KaXUT9sKZ6jsESEe6MgYz7V-JzgkvlgkYcUGc-BGc7P2MM0CHofU" alt="Baby" className="w-full h-full object-cover" />
+          <div className="size-10 rounded-full border-2 border-primary/20 overflow-hidden relative">
+            <Image src="/img/AIBaby.png" alt="Baby" fill className="object-cover" sizes="40px" />
           </div>
           <div>
             <h1 className="font-bold text-lg leading-tight truncate max-w-[150px]">{babyName}'s Daily</h1>
