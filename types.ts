@@ -136,3 +136,64 @@ export interface Translation {
     pasty: string;
   }
 }
+
+// 数据库表类型定义
+export interface User {
+  id: string;
+  username: string;
+  password_hash: string;  // 密码哈希
+  security_q1: string;    // 安全问题1答案
+  security_q2: string;    // 安全问题2答案
+  security_q3: string;    // 安全问题3答案
+  created_at: string;
+}
+
+export interface Baby {
+  id: string;
+  user_id: string;
+  name: string;
+  birth_date: string;
+  created_at: string;
+}
+
+export interface Feeding {
+  id: number;
+  baby_id: string;
+  type: string;
+  volume: number;
+  time: string;
+  timestamp: number;
+  note: string;
+  created_at: string;
+}
+
+export interface Diaper {
+  id: number;
+  baby_id: string;
+  type: 'pee' | 'poo' | 'mixed';
+  sub: string;
+  time: string;
+  timestamp: number;
+  color?: string;
+  created_at: string;
+}
+
+export interface Sleep {
+  id: number;
+  baby_id: string;
+  start: string;
+  end: string;
+  duration: string;
+  timestamp: number;
+  created_at: string;
+}
+
+export interface Growth {
+  id: number;
+  baby_id: string;
+  weight: string;
+  height: string;
+  date: string;
+  timestamp: number;
+  created_at: string;
+}

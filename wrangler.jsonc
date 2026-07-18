@@ -1,0 +1,25 @@
+/** 
+{
+  "name": "baby-daily", // 你的 Worker 名称，随意取，但要和 Dashboard 一致
+  "compatibility_date": "2026-07-18", // 日期随意，建议近一点
+  "main": "build/index.ts", // 👈 关键：指向你构建后的入口文件！
+  "build": {
+    "command": "npm run build", // 你的构建命令
+    "cwd": "/" // 工作目录，如果 build 脚本在根目录就写 "/"
+  }
+}
+*/
+
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "main": ".open-next/worker.js",
+  "name": "baby-daily",
+  "compatibility_date": "2026-07-18",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  }
+}

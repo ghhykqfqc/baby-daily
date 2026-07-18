@@ -1,4 +1,5 @@
 import React, { useState, createContext, useContext, useEffect, useMemo, useRef } from 'react';
+import Image from 'next/image';
 import { TEXTS } from './constants';
 import { Language, ViewState } from './types';
 
@@ -18,7 +19,7 @@ const useLanguage = () => useContext(LanguageContext);
 // --- Types & Interfaces ---
 interface Feeding { id: number; type: string; volume: number; time: string; timestamp: number; note: string; }
 interface Diaper { id: number; type: 'pee' | 'poo' | 'mixed'; sub: string; time: string; timestamp: number; color?: string; }
-interface Sleep { id: number; start: string; end: string; duration: string; timestamp: number; }
+interface Sleep { id: number; start_time: string; end_time: string; duration: string; timestamp: number; }
 interface Growth { id: number; weight: string; height: string; date: string; timestamp: number; }
 
 interface AppData {
@@ -39,8 +40,8 @@ const INITIAL_DATA: AppData = {
         { id: 2, type: 'pee', sub: 'Normal', time: "11:15", timestamp: now.getTime() - 15000000 },
     ],
     sleeps: [
-        { id: 1, start: "13:00", end: "15:00", duration: "2h 0m", timestamp: now.getTime() - 3600000 },
-        { id: 2, start: "10:00", end: "10:45", duration: "45m", timestamp: now.getTime() - 18000000 },
+        { id: 1, start_time: "13:00", end_time: "15:00", duration: "2h 0m", timestamp: now.getTime() - 3600000 },
+        { id: 2, start_time: "10:00", end_time: "10:45", duration: "45m", timestamp: now.getTime() - 18000000 },
     ],
     growth: [
         { id: 1, weight: "6.50", height: "62.00", date: new Date().toISOString().split('T')[0], timestamp: now.getTime() },
@@ -115,54 +116,163 @@ const LanguageSwitcher = () => {
     );
 };
 
-// --- Mock Auth Service ---
+const DataService = {
+    async fetchAll(babyId: string) {
+        const [feedings, diapers, sleeps, growth] = await Promise.all([
+            fetch(`/api/feedings?babyId=${babyId}`).then(r => r.json()),
+            fetch(`/api/diapers?babyId=${babyId}`).then(r => r.json()),
+            fetch(`/api/sleeps?babyId=${babyId}`).then(r => r.json()),
+            fetch(`/api/growth?babyId=${babyId}`).then(r => r.json())
+        ]);
+        return { feedings, diapers, sleeps, growth };
+    },
+
+    async saveRecord(type: string, babyId: string, data: any) {
+        const url = type === 'feeding' ? '/api/feedings' :
+                   type === 'diaper' ? '/api/diapers' :
+                   type === 'sleep' ? '/api/sleeps' : '/api/growth';
+        
+        const body = { baby_id: babyId, ...data };
+
+        const response = await fetch(`${url}?babyId=${babyId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to save record');
+        }
+        
+        return await response.json();
+    },
+
+    async updateRecord(type: string, babyId: string, data: any) {
+        const url = type === 'feeding' ? '/api/feedings' :
+                   type === 'diaper' ? '/api/diapers' :
+                   type === 'sleep' ? '/api/sleeps' : '/api/growth';
+
+        const body = { baby_id: babyId, ...data };
+
+        const response = await fetch(`${url}?babyId=${babyId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to update record');
+        }
+
+        return await response.json();
+    },
+
+    async deleteRecord(type: string, id: number, babyId: string) {
+        const url = type === 'feeding' ? '/api/feedings' :
+                   type === 'diaper' ? '/api/diapers' :
+                   type === 'sleep' ? '/api/sleeps' : '/api/growth';
+
+        const response = await fetch(`${url}?id=${id}&babyId=${babyId}`, {
+            method: 'DELETE'
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to delete record');
+        }
+    },
+
+    async fetchBabies(userId: string) {
+        const response = await fetch(`/api/baby?userId=${userId}`);
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to fetch babies');
+        }
+        return await response.json();
+    },
+
+    async createBaby(userId: string, name: string, birthDate: string) {
+        const response = await fetch('/api/baby', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: userId, name, birth_date: birthDate })
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to create baby');
+        }
+        
+        return await response.json();
+    }
+};
+
 const AuthService = {
     getKey: () => 'babyLog_users',
     getTokenKey: () => 'babyLog_token',
     
-    getUsers: () => {
-        const users = localStorage.getItem(AuthService.getKey());
-        return users ? JSON.parse(users) : [];
-    },
-
-    register: (username: string, password: string, answers: any) => {
-        const users = AuthService.getUsers();
-        if (users.find((u: any) => u.username === username)) {
-            throw new Error("Username already exists");
+    makeAuthRequest: async (action: string, data: any) => {
+        const response = await fetch('/api/auth', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action, ...data })
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Authentication failed');
         }
-        users.push({ username, password, answers });
-        localStorage.setItem(AuthService.getKey(), JSON.stringify(users));
+        
+        return await response.json();
     },
 
-    login: (username: string, password: string) => {
-        const users = AuthService.getUsers();
-        const user = users.find((u: any) => u.username === username && u.password === password);
-        if (user) {
-            // Mock Token
-            const token = btoa(JSON.stringify({ user: username, exp: Date.now() + 3600000 })); 
+    register: async (username: string, password: string, answers: any) => {
+        const result = await AuthService.makeAuthRequest('register', { username, password, answers });
+        return result.user;
+    },
+
+    login: async (username: string, password: string) => {
+        const result = await AuthService.makeAuthRequest('login', { username, password });
+        if (result.user) {
+            const token = btoa(JSON.stringify({ user: result.user, exp: Date.now() + 86400000 }));
             localStorage.setItem(AuthService.getTokenKey(), token);
-            return user;
+            return result.user;
         }
-        throw new Error("Invalid credentials");
+        throw new Error("Login failed");
     },
 
-    resetPassword: (username: string, answers: any, newPassword: string) => {
-        const users = AuthService.getUsers();
-        const userIdx = users.findIndex((u: any) => u.username === username);
-        if (userIdx === -1) throw new Error("User not found");
-
-        const user = users[userIdx];
-        if (user.answers.q1 !== answers.q1 || user.answers.q2 !== answers.q2 || user.answers.q3 !== answers.q3) {
-            throw new Error("Security answers do not match");
-        }
-
-        users[userIdx].password = newPassword;
-        localStorage.setItem(AuthService.getKey(), JSON.stringify(users));
+    resetPassword: async (username: string, answers: any, newPassword: string) => {
+        await AuthService.makeAuthRequest('forgot-password', { username, answers, newPassword });
     },
 
     checkAuth: () => {
         const token = localStorage.getItem(AuthService.getTokenKey());
-        return !!token;
+        if (token) {
+            try {
+                const parsedToken = JSON.parse(atob(token));
+                return Date.now() < parsedToken.exp;
+            } catch {
+                return false;
+            }
+        }
+        return false;
+    },
+
+    getUser: () => {
+        const token = localStorage.getItem(AuthService.getTokenKey());
+        if (token) {
+            try {
+                const parsedToken = JSON.parse(atob(token));
+                if (Date.now() < parsedToken.exp) {
+                    return parsedToken.user;
+                }
+            } catch {
+                return null;
+            }
+        }
+        return null;
     },
 
     logout: () => {
@@ -170,9 +280,7 @@ const AuthService = {
     }
 };
 
-// --- Login View ---
-
-const LoginView = ({ onLogin, onToast }: { onLogin: () => void, onToast: (msg: string) => void }) => {
+const LoginView = ({ onLogin, onToast }: { onLogin: (user: any) => void, onToast: (msg: string) => void }) => {
     const { t } = useLanguage();
     const [mode, setMode] = useState<'LOGIN' | 'REGISTER' | 'FORGOT'>('LOGIN');
     const [formData, setFormData] = useState({
@@ -182,49 +290,62 @@ const LoginView = ({ onLogin, onToast }: { onLogin: () => void, onToast: (msg: s
         q2: '',
         q3: ''
     });
+    const [loading, setLoading] = useState(false); // 添加加载状态
 
     const resetForm = () => setFormData({ username: '', password: '', q1: '', q2: '', q3: '' });
 
-    const handleRegister = () => {
+    const handleRegister = async () => {
         if(!formData.username || !formData.password || !formData.q1 || !formData.q2 || !formData.q3) {
             onToast("Please fill all fields");
             return;
         }
+        
+        setLoading(true);
         try {
-            AuthService.register(formData.username, formData.password, { q1: formData.q1, q2: formData.q2, q3: formData.q3 });
+            await AuthService.register(formData.username, formData.password, { q1: formData.q1, q2: formData.q2, q3: formData.q3 });
             onToast("Registration successful! Please login.");
             setMode('LOGIN');
             resetForm();
         } catch (e: any) {
             onToast(e.message);
+        } finally {
+            setLoading(false);
         }
     };
 
-    const handleLogin = () => {
+    const handleLogin = async () => {
         if(!formData.username || !formData.password) {
              onToast("Please enter username and password");
              return;
         }
+        
+        setLoading(true);
         try {
-            AuthService.login(formData.username, formData.password);
-            onLogin();
+            const user = await AuthService.login(formData.username, formData.password);
+            onLogin(user);
         } catch (e: any) {
             onToast(e.message);
+        } finally {
+            setLoading(false);
         }
     };
 
-    const handleReset = () => {
-        if(!formData.username || !formData.password || !formData.q1 || !formData.q2 || !formData.q3) {
+    const handleReset = async () => {
+        if(!formData.username || !formData.q1 || !formData.q2 || !formData.q3 || !formData.password) {
             onToast("Please fill all fields");
             return;
         }
+        
+        setLoading(true);
         try {
-            AuthService.resetPassword(formData.username, { q1: formData.q1, q2: formData.q2, q3: formData.q3 }, formData.password);
+            await AuthService.resetPassword(formData.username, { q1: formData.q1, q2: formData.q2, q3: formData.q3 }, formData.password);
             onToast("Password reset successful!");
             setMode('LOGIN');
             resetForm();
         } catch (e: any) {
              onToast(e.message);
+        } finally {
+            setLoading(false);
         }
     }
 
@@ -258,8 +379,10 @@ const LoginView = ({ onLogin, onToast }: { onLogin: () => void, onToast: (msg: s
                  </div>
 
                  <div className="animate-slide-up">
+                    <p className="text-xs font-bold text-primary px-1 uppercase tracking-wider mt-4">Account</p>
                     {renderInput('username', t.login.username)}
-                    
+                    {renderInput('password', mode === 'FORGOT' ? t.login.newPassword : t.login.password, "password")}
+
                     {(mode === 'REGISTER' || mode === 'FORGOT') && (
                         <div className="space-y-3 mb-3">
                             <p className="text-xs font-bold text-primary px-1 uppercase tracking-wider mt-4">Security Questions</p>
@@ -275,23 +398,26 @@ const LoginView = ({ onLogin, onToast }: { onLogin: () => void, onToast: (msg: s
                                 <label className="text-xs text-slate-500 font-bold ml-1">{t.login.q3}</label>
                                 {renderInput('q3', t.login.answerPlaceholder)}
                             </div>
-                            <p className="text-xs font-bold text-primary px-1 uppercase tracking-wider mt-4">Account</p>
                         </div>
                     )}
 
-                    {renderInput('password', mode === 'FORGOT' ? t.login.newPassword : t.login.password, "password")}
-
                     {mode === 'LOGIN' && (
                          <div className="flex justify-end mb-6">
-                             <button onClick={() => { setMode('FORGOT'); resetForm(); }} className="text-xs font-bold text-slate-400 hover:text-primary">{t.login.btnForgot}</button>
+                             <button 
+                               onClick={() => { setMode('FORGOT'); resetForm(); }} 
+                               className="text-xs font-bold text-slate-400 hover:text-primary"
+                             >
+                               {t.login.btnForgot}
+                             </button>
                          </div>
                     )}
 
                     <button 
                         onClick={mode === 'LOGIN' ? handleLogin : mode === 'REGISTER' ? handleRegister : handleReset} 
-                        className="w-full bg-slate-800 text-white py-4 rounded-xl font-bold shadow-lg active:scale-95 transition-transform mt-4"
+                        disabled={loading} // 禁用按钮当加载时
+                        className={`w-full ${loading ? 'bg-slate-400' : 'bg-slate-800 hover:bg-slate-700'} text-white py-4 rounded-xl font-bold shadow-lg active:scale-95 transition-transform mt-4`}
                     >
-                        {mode === 'LOGIN' ? t.login.btnLogin : mode === 'REGISTER' ? t.login.btnRegister : t.login.confirmReset}
+                        {loading ? 'Loading...' : (mode === 'LOGIN' ? t.login.btnLogin : mode === 'REGISTER' ? t.login.btnRegister : t.login.confirmReset)}
                     </button>
                  </div>
 
@@ -340,8 +466,8 @@ const HomeView = ({ onNavigate, data, onDelete, onToast, onEdit, babyName }: any
       {/* Top Bar */}
       <div className="sticky top-0 bg-background-light z-30 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="size-10 rounded-full border-2 border-primary/20 overflow-hidden">
-            <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuDHscGotOuiDiUWycvqIOLyjz_DqrCHIYvjDsE-o6Fy4cwM8_3vNKrzlfPw7BAeDwWcfvCRF5_QMT4SMLedDvyfTdUNSHDXc7NPDpMP4wCtqNBcHSbzoMg0HPiAEwKg31TI1OmXPqgP3vPHln0X5DOxQVQIjPsroDhv-XnikciBjxTiM32d1LNu8FgfeDaQ2o1a-3GyvY7EGL7husEQBYdyT6B2KaXUT9sKZ6jsESEe6MgYz7V-JzgkvlgkYcUGc-BGc7P2MM0CHofU" alt="Baby" className="w-full h-full object-cover" />
+          <div className="size-10 rounded-full border-2 border-primary/20 overflow-hidden relative">
+            <Image src="/img/AIBaby.png" alt="Baby" fill className="object-cover" sizes="40px" />
           </div>
           <div>
             <h1 className="font-bold text-lg leading-tight truncate max-w-[150px]">{babyName}'s Daily</h1>
@@ -571,7 +697,7 @@ const SleepView = ({ onNavigate, data, onDelete, onToast, onEdit }: any) => {
                                      <h4 className="font-bold text-slate-800">{t.records.sleep}</h4>
                                      <span className="text-indigo-500 font-bold text-sm bg-indigo-50 px-2 py-1 rounded-lg">{item.duration}</span>
                                  </div>
-                                 <div className="flex items-center gap-2 text-slate-400 text-sm font-medium"><Icon name="schedule" className="text-sm" />{item.start} - {item.end} <span className="text-xs ml-2">({new Date(item.timestamp).toLocaleDateString()})</span></div>
+                                 <div className="flex items-center gap-2 text-slate-400 text-sm font-medium"><Icon name="schedule" className="text-sm" />{item.start_time} - {item.end_time} <span className="text-xs ml-2">({new Date(item.timestamp).toLocaleDateString()})</span></div>
                                  <div className="absolute right-2 top-2 flex flex-col gap-1">
                                     <button onClick={() => { if(window.confirm("Delete?")) onDelete(item.id, 'sleeps'); }} className="size-8 flex items-center justify-center text-slate-300 hover:text-rose-500"><Icon name="close" className="text-sm" /></button>
                                     <button onClick={() => onEdit(item, 'ADD_SLEEP')} className="size-8 flex items-center justify-center text-slate-300 hover:text-primary"><Icon name="edit" className="text-sm" /></button>
@@ -693,7 +819,7 @@ const ProfileView = ({ onToast, onLogout, babyName, setBabyName, data }: any) =>
             ["Category", "Date", "Time", "Details", "Value"],
             ...data.feedings.map((f: Feeding) => ["Feeding", new Date(f.timestamp).toLocaleDateString(), f.time, f.type, f.volume + "ml"]),
             ...data.diapers.map((d: Diaper) => ["Diaper", new Date(d.timestamp).toLocaleDateString(), d.time, d.type, d.sub]),
-            ...data.sleeps.map((s: Sleep) => ["Sleep", new Date(s.timestamp).toLocaleDateString(), `${s.start}-${s.end}`, "Duration", s.duration]),
+            ...data.sleeps.map((s: Sleep) => ["Sleep", new Date(s.timestamp).toLocaleDateString(), `${s.start_time}-${s.end_time}`, "Duration", s.duration]),
             ...data.growth.map((g: Growth) => ["Growth", g.date, "-", `H:${g.height}cm`, `W:${g.weight}kg`]),
         ];
         const csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.join(",")).join("\n");
@@ -906,14 +1032,14 @@ const AddDiaperView = ({ onBack, onSave, initialData }: any) => {
 
 const AddSleepView = ({ onBack, onSave, initialData }: any) => {
     const { t } = useLanguage();
-    const [start, setStart] = useState(initialData?.start || "20:00");
-    const [end, setEnd] = useState(initialData?.end || "06:00");
+    const [start_time, setStart_time] = useState(initialData?.start_time || "20:00");
+    const [end_time, setEnd_time] = useState(initialData?.end_time || "06:00");
 
     const calculateDuration = () => {
-        const [sh, sm] = start.split(':').map(Number);
-        const [eh, em] = end.split(':').map(Number);
+        const [sh, sm] = start_time.split(':').map(Number);
+        const [eh, em] = end_time.split(':').map(Number);
         let mins = (eh * 60 + em) - (sh * 60 + sm);
-        if (mins < 0) mins += 24 * 60; 
+        if (mins < 0) mins += 24 * 60;
         const h = Math.floor(mins / 60);
         const m = mins % 60;
         return `${h}h ${m}m`;
@@ -922,8 +1048,8 @@ const AddSleepView = ({ onBack, onSave, initialData }: any) => {
     const handleSave = () => {
         onSave({
             id: initialData?.id || Date.now(),
-            start: start,
-            end: end,
+            start_time: start_time,
+            end_time: end_time,
             duration: calculateDuration(),
             timestamp: initialData?.timestamp || Date.now()
         });
@@ -932,9 +1058,9 @@ const AddSleepView = ({ onBack, onSave, initialData }: any) => {
     return (
         <AddLayout title={initialData ? t.sleepAdd.editTitle : t.sleepAdd.title} onCancel={onBack} onSave={handleSave}>
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-50 flex items-center justify-between gap-4">
-                <div className="flex-1"><p className="text-xs font-bold uppercase text-slate-400 mb-1">{t.sleepAdd.start}</p><input type="time" value={start} onChange={(e) => setStart(e.target.value)} className="text-2xl font-bold bg-transparent outline-none w-full" /></div>
+                <div className="flex-1"><p className="text-xs font-bold uppercase text-slate-400 mb-1">{t.sleepAdd.start}</p><input type="time" value={start_time} onChange={(e) => setStart_time(e.target.value)} className="text-2xl font-bold bg-transparent outline-none w-full" /></div>
                 <Icon name="arrow_forward" className="text-slate-300" />
-                <div className="flex-1 text-right"><p className="text-xs font-bold uppercase text-slate-400 mb-1">{t.sleepAdd.end}</p><input type="time" value={end} onChange={(e) => setEnd(e.target.value)} className="text-2xl font-bold bg-transparent outline-none w-full text-right" /></div>
+                <div className="flex-1 text-right"><p className="text-xs font-bold uppercase text-slate-400 mb-1">{t.sleepAdd.end}</p><input type="time" value={end_time} onChange={(e) => setEnd_time(e.target.value)} className="text-2xl font-bold bg-transparent outline-none w-full text-right" /></div>
             </div>
             <div className="bg-indigo-50 p-4 rounded-xl flex justify-center"><p className="text-indigo-600 font-bold">Total Duration: {calculateDuration()}</p></div>
         </AddLayout>
@@ -1000,50 +1126,98 @@ const BottomNav = ({ current, onChange }: { current: ViewState; onChange: (v: Vi
     );
 };
 
-// --- Main App ---
 export default function App() {
-  const [lang, setLang] = useState<Language>('en');
-  const [currentView, setCurrentView] = useState<ViewState>('LOGIN'); // Start at Login
-  const [appData, setAppData] = useState<AppData>(INITIAL_DATA);
+  const [lang, setLang] = useState<Language>('zh');
+  const [currentView, setCurrentView] = useState<ViewState>('LOGIN');
+  const [appData, setAppData] = useState<AppData>({ feedings: [], diapers: [], sleeps: [], growth: [] });
   const [toast, setToast] = useState({ show: false, msg: '' });
   const [editingItem, setEditingItem] = useState<any>(null);
   const [babyName, setBabyName] = useState("Leo");
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentBaby, setCurrentBaby] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const loadData = async (babyId: string) => {
+    setIsLoading(true);
+    try {
+      const data = await DataService.fetchAll(babyId);
+      setAppData(data);
+    } catch (e: any) {
+      setToast({ show: true, msg: e.message || 'Failed to load data' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-     if(AuthService.checkAuth()) {
-         setCurrentView('HOME');
+     const user = AuthService.getUser();
+     if (user) {
+         setCurrentUser(user);
      }
   }, []);
+
+  useEffect(() => {
+     if (currentUser) {
+         DataService.fetchBabies(currentUser.id).then(babies => {
+             if (babies && babies.length > 0) {
+                 setCurrentBaby(babies[0]);
+                 setBabyName(babies[0].name);
+                 loadData(babies[0].id);
+                 setCurrentView('HOME');
+             }
+         }).catch(() => {
+             setCurrentView('HOME');
+         });
+     }
+  }, [currentUser]);
 
   const toggleLang = () => setLang(prev => prev === 'en' ? 'zh' : 'en');
   const showToast = (msg: string) => setToast({ show: true, msg });
 
-  const handleSave = (section: keyof AppData, newItem: any) => {
-      setAppData(prev => {
-          // Check if editing existing item
-          const exists = prev[section].some(i => i.id === newItem.id);
-          let newList;
+  const handleSave = async (section: keyof AppData, newItem: any) => {
+      if (!currentBaby) return;
+
+      const type = section === 'feedings' ? 'feeding' :
+                   section === 'diapers' ? 'diaper' :
+                   section === 'sleeps' ? 'sleep' : 'growth';
+
+      try {
+          var savedItem;
+          const exists = appData[section].some((i: any) => i.id === newItem.id);
+
           if (exists) {
-              newList = prev[section].map(i => i.id === newItem.id ? newItem : i);
+              savedItem = await DataService.updateRecord(type, currentBaby.id, newItem);
           } else {
-              newList = [newItem, ...prev[section]];
+              savedItem = await DataService.saveRecord(type, currentBaby.id, newItem);
           }
-          // Sort by timestamp descending (newest first)
-          newList.sort((a, b) => b.timestamp - a.timestamp);
-          return { ...prev, [section]: newList };
-      });
-      showToast(editingItem ? "Record updated!" : "Record saved!");
-      setEditingItem(null);
-      // Navigate back
-      if(section === 'feedings') setCurrentView('HOME');
-      if(section === 'diapers') setCurrentView('DIAPER_LOG');
-      if(section === 'sleeps') setCurrentView('SLEEP_LOG');
-      if(section === 'growth') setCurrentView('GROWTH_LOG');
+
+          await loadData(currentBaby.id);
+          showToast(editingItem ? "Record updated!" : "Record saved!");
+          setEditingItem(null);
+
+          if(section === 'feedings') setCurrentView('HOME');
+          if(section === 'diapers') setCurrentView('DIAPER_LOG');
+          if(section === 'sleeps') setCurrentView('SLEEP_LOG');
+          if(section === 'growth') setCurrentView('GROWTH_LOG');
+      } catch (e: any) {
+          showToast(e.message || 'Failed to save record');
+      }
   }
 
-  const handleDelete = (id: number, section: keyof AppData) => {
-      setAppData(prev => ({ ...prev, [section]: prev[section].filter(item => item.id !== id) }));
-      showToast("Record deleted");
+  const handleDelete = async (id: number, section: keyof AppData) => {
+      if (!currentBaby) return;
+
+      const type = section === 'feedings' ? 'feeding' :
+                   section === 'diapers' ? 'diaper' :
+                   section === 'sleeps' ? 'sleep' : 'growth';
+
+      try {
+          await DataService.deleteRecord(type, id, currentBaby.id);
+          await loadData(currentBaby.id);
+          showToast("Record deleted");
+      } catch (e: any) {
+          showToast(e.message || 'Failed to delete record');
+      }
   }
 
   const handleEdit = (item: any, view: ViewState) => {
@@ -1061,14 +1235,131 @@ export default function App() {
 
   const handleLogout = () => {
       AuthService.logout();
+      setCurrentUser(null);
+      setCurrentBaby(null);
+      setAppData({ feedings: [], diapers: [], sleeps: [], growth: [] });
       setCurrentView('LOGIN');
+  }
+
+  const handleLogin = async (user: any) => {
+      setCurrentUser(user);
+      await loadData(user.id);
+      setCurrentView('HOME');
+      
+    //   try {
+    //       const babies = await DataService.fetchBabies(user.id);
+    //       console.log("babies======>", babies);
+    //       if (babies && babies.length > 0) {
+    //           const baby = babies[0];
+    //           setCurrentBaby(baby);
+    //           setBabyName(baby.name);
+    //           await loadData(baby.id);
+    //           setCurrentView('HOME');
+    //       } else {
+    //           setToast({ show: true, msg: 'No baby found. Please create a baby profile.' });
+    //       }
+    //   } catch (e: any) {
+    //       setToast({ show: true, msg: e.message || 'Failed to load baby data' });
+    //   }
   }
 
   const value = { lang, toggleLang, t: TEXTS[lang] };
 
+  const CreateBabyView = () => {
+      const { t } = useLanguage();
+      const [babyName, setBabyNameInput] = useState('');
+      const [birthDate, setBirthDate] = useState(new Date().toISOString().split('T')[0]);
+      const [loading, setLoading] = useState(false);
+
+      const handleCreate = async () => {
+          if (!babyName || !birthDate) {
+              showToast('Please fill all fields');
+              return;
+          }
+          
+          setLoading(true);
+          try {
+              const baby = await DataService.createBaby(currentUser.id, babyName, birthDate);
+              setCurrentBaby(baby);
+              setBabyName(baby.name);
+              await loadData(baby.id);
+              showToast('Baby profile created!');
+              setCurrentView('HOME');
+          } catch (e: any) {
+              showToast(e.message || 'Failed to create baby');
+          } finally {
+              setLoading(false);
+          }
+      };
+
+      return (
+          <div className="min-h-screen bg-background-light flex flex-col items-center justify-center p-6">
+              <div className="w-full max-w-sm">
+                  <div className="text-center mb-10">
+                      <div className="size-20 bg-primary rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-lg shadow-primary/30">
+                          <Icon name="child_care" className="text-4xl text-white" />
+                      </div>
+                      <h1 className="text-2xl font-bold text-slate-800">Create Baby Profile</h1>
+                      <p className="text-slate-400 text-sm mt-1">Add your baby's information</p>
+                  </div>
+
+                  <div className="space-y-4">
+                      <div>
+                          <label className="text-xs font-bold text-primary px-1 uppercase tracking-wider">Baby's Name</label>
+                          <div className="bg-white px-4 py-3 rounded-xl border border-slate-100 flex items-center gap-3 shadow-sm mt-2">
+                              <input 
+                                  type="text" 
+                                  value={babyName}
+                                  onChange={(e) => setBabyNameInput(e.target.value)}
+                                  placeholder="Enter baby's name"
+                                  className="flex-1 outline-none text-sm font-medium bg-transparent"
+                              />
+                          </div>
+                      </div>
+
+                      <div>
+                          <label className="text-xs font-bold text-primary px-1 uppercase tracking-wider">Birth Date</label>
+                          <div className="bg-white px-4 py-3 rounded-xl border border-slate-100 flex items-center gap-3 shadow-sm mt-2">
+                              <input 
+                                  type="date" 
+                                  value={birthDate}
+                                  onChange={(e) => setBirthDate(e.target.value)}
+                                  className="flex-1 outline-none text-sm font-medium bg-transparent"
+                              />
+                          </div>
+                      </div>
+
+                      <button 
+                          onClick={handleCreate}
+                          disabled={loading}
+                          className={`w-full ${loading ? 'bg-slate-400' : 'bg-slate-800 hover:bg-slate-700'} text-white py-4 rounded-xl font-bold shadow-lg active:scale-95 transition-transform mt-4`}
+                      >
+                          {loading ? 'Creating...' : 'Create Profile'}
+                      </button>
+                  </div>
+              </div>
+          </div>
+      );
+  };
+
   const renderView = () => {
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="text-center">
+                    <Icon name="hourglass_empty" className="text-4xl text-primary animate-pulse" />
+                    <p className="mt-2 text-slate-500 font-medium">Loading...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (currentUser && !currentBaby && currentView !== 'LOGIN') {
+        return <CreateBabyView />;
+    }
+    
     switch(currentView) {
-        case 'LOGIN': return <LoginView onLogin={() => setCurrentView('HOME')} onToast={showToast} />
+        case 'LOGIN': return <LoginView onLogin={handleLogin} onToast={showToast} />
         case 'ADD_FEEDING': return <AddFeedingView onBack={handleCancel} onSave={(item: any) => handleSave('feedings', item)} initialData={editingItem} />;
         case 'ADD_DIAPER': return <AddDiaperView onBack={handleCancel} onSave={(item: any) => handleSave('diapers', item)} initialData={editingItem} />;
         case 'ADD_SLEEP': return <AddSleepView onBack={handleCancel} onSave={(item: any) => handleSave('sleeps', item)} initialData={editingItem} />;
